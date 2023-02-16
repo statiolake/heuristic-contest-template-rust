@@ -1,0 +1,25 @@
+{
+  // IntelliSense を使用して利用可能な属性を学べます。
+  // 既存の属性の説明をホバーして表示します。
+  // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "main",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "target/debug/main",
+      "args": ["in/0000.txt"],
+      "preLaunchTask": "Debug Build",
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        {
+          "name": "RUST_BACKTRACE",
+          "value": "1"
+        }
+      ],
+      "console": "internalConsole"
+    }
+  ]
+}

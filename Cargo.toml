@@ -1,0 +1,10 @@
+[workspace]
+default-members = ["driver"]
+members = [
+  "xtask",
+  "driver",
+]
+exclude = ["testing/tools"]
+
+[profile.release]
+debug = true # プロファイリングのためデバッグシンボルを追加する

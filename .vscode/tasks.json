@@ -1,0 +1,39 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Debug Build",
+      "type": "shell",
+      "command": "cargo build"
+    },
+    {
+      "label": "Bundle",
+      "type": "shell",
+      "command": "cargo xtask bundle | clip"
+    },
+    {
+      "label": "Run tests",
+      "type": "shell",
+      "windows": {
+        "command": "python testing\\run_tests.py"
+      }
+    },
+    {
+      "label": "Copy result",
+      "type": "shell",
+      "windows": {
+        "command": "python testing\\copy_result.py ${input:resultId}"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "resultId",
+      "description": "the target result file number",
+      "default": "0",
+      "type": "promptString"
+    }
+  ]
+}

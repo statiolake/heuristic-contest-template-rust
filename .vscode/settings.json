@@ -1,0 +1,28 @@
+{
+  "multiCommand.commands": {
+    "multiCommand.task.bundle": {
+      "sequence": [
+        {
+          "command": "workbench.action.tasks.runTask",
+          "args": "Bundle"
+        }
+      ]
+    },
+    "multiCommand.task.runTests": {
+      "sequence": [
+        {
+          "command": "workbench.action.tasks.runTask",
+          "args": "Run tests"
+        }
+      ]
+    },
+    "multiCommand.task.copy": {
+      "sequence": [
+        {
+          "command": "workbench.action.tasks.runTask",
+          "args": "Copy result"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+/target
+/testing/*
+!/testing/in
+!/testing/out
+!/testing/tools
+/testing/*/*
+!/testing/in/.gitkeep
+!/testing/out/.gitkeep
+!/testing/tools/.gitkeep
+!/testing/run_tests.py
+!/testing/min_results.bin
