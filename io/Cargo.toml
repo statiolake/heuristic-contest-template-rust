@@ -1,10 +1,11 @@
 [package]
-name = "main"
+name = "io"
 version = "0.1.0"
+authors = ["statiolake <statiolake@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-brain = { path = "../brain" }
-io = { path = "../io" }
-common = { path = "../common" }
+proconio = { workspace = true }
+lazy_static = { workspace = true }

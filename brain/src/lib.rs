@@ -1,15 +1,6 @@
-use crate::input::Input;
+use io::{InitInput, Output, TurnInput};
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
-use std::{fmt, time::Instant};
-
-#[derive(Debug, Clone)]
-pub struct Action;
-
-impl fmt::Display for Action {
-    fn fmt(&self, b: &mut fmt::Formatter) -> fmt::Result {
-        write!(b, "")
-    }
-}
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct Brain {
@@ -18,14 +9,14 @@ pub struct Brain {
 }
 
 impl Brain {
-    pub fn init(_input: Input) -> Self {
+    pub fn init(_input: InitInput) -> Self {
         let gen = SmallRng::from_rng(thread_rng()).unwrap();
         let timer = Instant::now();
 
         Self { gen, timer }
     }
 
-    pub fn think(&mut self) -> Action {
+    pub fn think(&mut self, _turn: TurnInput) -> Output {
         todo!()
     }
 }

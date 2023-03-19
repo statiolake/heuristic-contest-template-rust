@@ -3,8 +3,18 @@ default-members = ["driver"]
 members = [
   "xtask",
   "driver",
+  "common",
+  "io",
+  "brain",
 ]
 exclude = ["testing/tools"]
+
+[workspace.dependencies]
+itertools = "=0.9"
+proconio = "=0.3"
+rand = { version = "=0.7.3", features = ["small_rng"] }
+smallvec = "=1.2.0"
+lazy_static = "=1.4.0"
 
 [profile.release]
 debug = true # プロファイリングのためデバッグシンボルを追加する

@@ -1,6 +1,5 @@
-use std::time::{Duration, Instant};
-
 use rand::Rng;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SimAnnMode {
