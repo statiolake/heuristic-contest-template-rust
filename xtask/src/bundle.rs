@@ -253,7 +253,7 @@ fn extract_extern_crates(parsed: &mut File) -> Vec<ItemExternCrate> {
 }
 
 fn expand_file_under_crate(crate_ident: Option<&str>, file_path: &Path) -> Result<File> {
-    let source = read_to_string(&file_path)?;
+    let source = read_to_string(file_path)?;
     let mut parsed: File = parse_str(&source)?;
     expand_mod_all(crate_ident, &mut parsed, file_path)?;
 
@@ -264,7 +264,7 @@ fn expand_crate(
     crate_ident: Option<&str>,
     file_path: &Path,
 ) -> Result<(File, Vec<ItemExternCrate>)> {
-    let source = read_to_string(&file_path)?;
+    let source = read_to_string(file_path)?;
     let mut parsed: File = parse_str(&source)?;
     let extern_crates = extract_extern_crates(&mut parsed);
     expand_mod_all(crate_ident, &mut parsed, file_path)?;
