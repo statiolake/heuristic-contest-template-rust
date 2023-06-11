@@ -6,7 +6,7 @@ members = [
   "common",
   "types",
   "io",
-  "solution_01",
+  "solution-01",
 ]
 exclude = ["testing/tools"]
 
