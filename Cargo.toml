@@ -4,6 +4,7 @@ members = [
   "xtask",
   "driver",
   "common",
+  "types",
   "io",
   "solution_01",
 ]

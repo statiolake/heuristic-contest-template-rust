@@ -1,22 +1,27 @@
+extern crate io;
+extern crate types;
+
 use io::{Action, InitInput, TurnInput};
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use std::time::Instant;
+use types::Solution;
 
 #[derive(Debug, Clone)]
-pub struct Brain {
+pub struct FirstSolution {
     gen: SmallRng,
     timer: Instant,
 }
 
-impl Brain {
-    pub fn init(_input: InitInput) -> Self {
+impl Solution for FirstSolution {
+    fn init(_input: InitInput) -> Self {
         let gen = SmallRng::from_rng(thread_rng()).unwrap();
         let timer = Instant::now();
 
         Self { gen, timer }
     }
 
-    pub fn think(&mut self, _turn: TurnInput) -> Action {
+    fn think(&mut self, _turn: TurnInput) -> Action {
+        // TODO: implement this
         todo!()
     }
 }

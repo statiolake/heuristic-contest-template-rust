@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 io = { path = "../io" }
 rand = { workspace = true, features = ["small_rng"] }
+types = { path = "../types" }
