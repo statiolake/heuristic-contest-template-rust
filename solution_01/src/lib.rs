@@ -1,4 +1,4 @@
-use io::{InitInput, Output, TurnInput};
+use io::{Action, InitInput, TurnInput};
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use std::time::Instant;
 
@@ -16,7 +16,7 @@ impl Brain {
         Self { gen, timer }
     }
 
-    pub fn think(&mut self, _turn: TurnInput) -> Output {
+    pub fn think(&mut self, _turn: TurnInput) -> Action {
         todo!()
     }
 }

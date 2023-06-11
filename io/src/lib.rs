@@ -31,9 +31,9 @@ fn find_source() -> AutoSource<Box<dyn BufRead + Send>> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Output {}
+pub enum Action {}
 
-impl fmt::Display for Output {
+impl fmt::Display for Action {
     fn fmt(&self, _b: &mut fmt::Formatter) -> fmt::Result {
         match *self {}
     }

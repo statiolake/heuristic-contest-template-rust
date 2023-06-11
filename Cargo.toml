@@ -5,7 +5,7 @@ members = [
   "driver",
   "common",
   "io",
-  "brain",
+  "solution_01",
 ]
 exclude = ["testing/tools"]
 
