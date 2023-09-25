@@ -1,33 +1,23 @@
-use lazy_static::lazy_static;
-use proconio::{input, source::auto::AutoSource};
 use std::{
-    env::args,
     fmt,
-    fs::File,
-    io::{stdin, BufRead, BufReader},
-    path::Path,
-    sync::Mutex,
+    sync::{Mutex, OnceLock},
 };
 
-lazy_static! {
-    static ref SOURCE: Mutex<AutoSource<Box<dyn BufRead + Send>>> = Mutex::new(find_source());
-}
+use source::Source;
 
-fn find_source() -> AutoSource<Box<dyn BufRead + Send>> {
-    if let Some(name) = args().nth(1) {
-        let path = Path::new(&name);
-        if path.exists() {
-            eprintln!("input: {}", path.display());
-            let f = File::open(path).expect("internal error: failed to open input file");
-            let br = BufReader::new(f);
-            return AutoSource::new(Box::new(br) as Box<_>);
-        } else {
-            eprintln!("file {} does not exist", path.display());
-        }
-    }
+pub mod io;
+pub mod macros;
+pub mod source;
 
-    eprintln!("input: stdin");
-    AutoSource::new(Box::new(BufReader::new(stdin())) as Box<_>)
+pub static STDIN_SOURCE: OnceLock<Mutex<Source>> = OnceLock::new();
+
+// Hack: You need this wrapper to "surpress" path conversion in bundler. Without this wrapper, you
+// need to call `input!` macro like `crate::input!`. This is transformed to `crate::io::input!`,
+// which is not collect.
+macro_rules! input {
+    ($($tokens:tt)*) => {
+        $crate::input!($($tokens)*)
+    };
 }
 
 #[derive(Debug, Clone)]
@@ -44,12 +34,7 @@ pub struct InitInput {}
 
 impl InitInput {
     pub fn read() -> InitInput {
-        let mut source = SOURCE
-            .lock()
-            .expect("internal error: failed to lock input source");
-        input! {
-            from &mut *source,
-        }
+        input! {}
 
         InitInput {}
     }
@@ -60,12 +45,7 @@ pub struct TurnInput {}
 
 impl TurnInput {
     pub fn read() -> TurnInput {
-        let mut source = SOURCE
-            .lock()
-            .expect("internal error: failed to lock input source");
-        input! {
-            from &mut *source,
-        }
+        input! {}
 
         TurnInput {}
     }
