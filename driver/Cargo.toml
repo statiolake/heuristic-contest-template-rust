@@ -7,5 +7,5 @@ edition = "2018"
 [dependencies]
 solution-01 = { path = "../solution-01" }
 io = { path = "../io" }
-common = { path = "../common" }
+library = { path = "../library" }
 types = { path = "../types" }

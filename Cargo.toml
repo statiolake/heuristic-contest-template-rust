@@ -1,13 +1,6 @@
 [workspace]
 default-members = ["driver"]
-members = [
-  "xtask",
-  "driver",
-  "common",
-  "types",
-  "io",
-  "solution-01",
-]
+members = ["xtask", "driver", "library", "types", "io", "solution-01"]
 exclude = ["testing/tools"]
 
 # Initially enables crates available at both of AtCoder and CodinGame.
