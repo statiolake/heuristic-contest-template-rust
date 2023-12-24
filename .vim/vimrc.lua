@@ -6,7 +6,7 @@ local clipboard
 if is_unix and vim.fn.executable("wl-copy") ~= 0 then
 	clipboard = "wl-copy"
 elseif is_unix and vim.fn.executable("xsel") ~= 0 then
-	clipboard = "xsel -bo"
+	clipboard = "xsel -bi"
 elseif is_win or is_wsl then
 	clipboard = "clip.exe"
 end
