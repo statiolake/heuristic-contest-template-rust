@@ -16,7 +16,7 @@ local function open_result(dir, id)
 	if id < 0 then
 		return
 	end
-	local bufname = vim.fn.expand("%:t")
+	local bufname = vim.fn.expand("%:t") --[[@as string]]
 	if not vim.endswith(bufname, ".txt.stderr") then
 		vim.cmd("tabnew")
 	end
@@ -26,7 +26,7 @@ end
 
 local function parse_bufname()
 	local dir = vim.fn.expand("%:h")
-	local bufname = vim.fn.expand("%:t")
+	local bufname = vim.fn.expand("%:t") --[[@as string]]
 	if not vim.endswith(bufname, ".txt.stderr") then
 		return nil
 	end
