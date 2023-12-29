@@ -1,12 +1,13 @@
 [workspace]
 default-members = ["driver"]
-members = ["xtask", "driver", "library", "types", "io", "solutions"]
+members = ["xtask", "driver", "library", "types", "io", "referee", "solutions"]
 exclude = ["testing/tools"]
+resolver = "2"
 
 # Initially enables crates available at both of AtCoder and CodinGame.
 [workspace.dependencies]
 itertools = "=0.11.0"
-rand = "=0.8.5"
+rand = { version = "=0.8.5", features = ["small_rng"] }
 regex = "=1.9.1"
 # ac-library-rs = "=0.1.1"
 # once_cell = "=1.18.0"
