@@ -1,8 +1,17 @@
 extern crate io;
 
-use io::{Action, InitInput, TurnInput};
+use std::ops::ControlFlow;
+
+use io::{InitInput, Output, TurnInput};
 
 pub trait Solution {
-    fn init(input: InitInput) -> Self;
-    fn think(&mut self, turn: TurnInput) -> Action;
+    fn name() -> &'static str
+    where
+        Self: Sized;
+
+    fn init(input: InitInput) -> Self
+    where
+        Self: Sized;
+
+    fn think(&mut self, turn: TurnInput) -> ControlFlow<Output, Output>;
 }

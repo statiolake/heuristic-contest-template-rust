@@ -21,11 +21,11 @@ macro_rules! input {
 }
 
 #[derive(Debug, Clone)]
-pub enum Action {}
+pub struct Output;
 
-impl fmt::Display for Action {
+impl fmt::Display for Output {
     fn fmt(&self, _b: &mut fmt::Formatter) -> fmt::Result {
-        match *self {}
+        todo!()
     }
 }
 

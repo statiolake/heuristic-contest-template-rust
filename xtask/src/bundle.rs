@@ -17,6 +17,17 @@ use syn::{
     Visibility,
 };
 
+pub fn main(_args: &[String]) -> Result<()> {
+    let file_path: PathBuf = vec!["driver", "src", "main.rs"].into_iter().collect();
+    let parsed = expand(&file_path)?;
+
+    let stream = parsed.to_token_stream();
+    let formatted = format(&stream.to_string())?;
+    println!("{}", formatted);
+
+    Ok(())
+}
+
 fn fix_use_all(
     crate_ident: Option<&str>,
     external_crate_idents: &[String],
@@ -329,15 +340,4 @@ pub fn format(source: &str) -> Result<String> {
 
     let output = proc.wait_with_output()?;
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
-
-pub fn main(_args: &[String]) -> Result<()> {
-    let file_path: PathBuf = vec!["driver", "src", "main.rs"].into_iter().collect();
-    let parsed = expand(&file_path)?;
-
-    let stream = parsed.to_token_stream();
-    let formatted = format(&stream.to_string())?;
-    println!("{}", formatted);
-
-    Ok(())
 }

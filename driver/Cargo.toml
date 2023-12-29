@@ -5,7 +5,7 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-solution-01 = { path = "../solution-01" }
+solutions = { path = "../solutions" }
 io = { path = "../io" }
 library = { path = "../library" }
 types = { path = "../types" }
