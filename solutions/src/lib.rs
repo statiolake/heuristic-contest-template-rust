@@ -1,14 +1,19 @@
 extern crate io;
 extern crate types;
 
-macro_rules! define_solutions {
-    ($($modname:ident::$solution:ident),*$(,)?) => {
-        $(pub mod $modname;)*
+use io::InitInput;
+use types::Solution;
 
-        pub fn create_solution(name: &str, input: io::InitInput) -> Option<Box<dyn types::Solution>> {
+pub mod naive;
+
+use naive::NaiveSolution;
+
+macro_rules! define_solutions {
+    ($($solution:ident),*$(,)?) => {
+        pub fn create_solution(name: &str, input: InitInput) -> Option<Box<dyn Solution>> {
             $(
-                if <$modname::$solution as types::Solution>::name() == name {
-                    return Some(Box::new(<$modname::$solution as types::Solution>::init(input)));
+                if <$solution as Solution>::name() == name {
+                    return Some(Box::new(<$solution as Solution>::init(input)));
                 }
             )*
 
@@ -18,11 +23,11 @@ macro_rules! define_solutions {
         pub fn get_solution_names() -> Vec<&'static str> {
             vec![
                 $(
-                    <$modname::$solution as types::Solution>::name(),
+                    <$solution as Solution>::name(),
                 )*
             ]
         }
     };
 }
 
-define_solutions![naive::NaiveSolution];
+define_solutions![NaiveSolution];

@@ -11,7 +11,7 @@ pub struct NaiveSolution {
 
 impl Solution for NaiveSolution {
     fn name() -> &'static str {
-        "naive_solution"
+        "naive"
     }
 
     fn init(_input: InitInput) -> Self {
