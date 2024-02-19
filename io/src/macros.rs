@@ -122,7 +122,23 @@ macro_rules! read_value {
     // normal other
     (@source [$source:expr] @kind [$kind:ty]) => {
         <$kind as $crate::io::source::Readable>::read($source)
-    }
+    };
+
+    // human-friendly version
+    ($($kind:tt)*) => {{
+        // This `io` is...
+        // - A `io` submodule of `io` crate in local development; crate::io::io.
+        // - Bundled `io` module (= original `io` crate root) after bundler.
+        #[allow(unused_mut)]
+        let mut locked_stdin = $crate::io::STDIN_SOURCE
+            .get_or_init(|| std::sync::Mutex::new($crate::io::source::Source::new()))
+            .lock()
+            .unwrap();
+        $crate::read_value! {
+            @source [&mut *locked_stdin]
+            @kind [$($kind)*]
+        }
+    }};
 }
 
 pub fn is_stdin_empty() -> bool {
