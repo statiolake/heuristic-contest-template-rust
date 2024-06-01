@@ -38,6 +38,10 @@ impl InitInput {
 
         InitInput {}
     }
+
+    pub fn describe(&self) -> String {
+        "TODO: insert description here".into()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

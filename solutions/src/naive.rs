@@ -1,7 +1,7 @@
+use crate::Solution;
 use io::{InitInput, Output, TurnInput};
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use std::{ops::ControlFlow, time::Instant};
-use types::Solution;
 
 #[derive(Debug, Clone)]
 pub struct NaiveSolution {
