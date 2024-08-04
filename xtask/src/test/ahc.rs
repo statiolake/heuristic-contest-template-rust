@@ -532,7 +532,7 @@ impl TablePrinter {
             // Seed
             row.push(TableCell {
                 content: seed.inner().to_string(),
-                alignment: Alignment::Left,
+                alignment: Alignment::Right,
             });
 
             // Parameters
