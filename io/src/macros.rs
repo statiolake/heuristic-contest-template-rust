@@ -60,8 +60,7 @@ macro_rules! input {
         // - Bundled `io` module (= original `io` crate root) after bundler.
         #[allow(unused_mut)]
         let mut locked_stdin = $crate::io::STDIN_SOURCE
-            .get_or_init(|| std::sync::Mutex::new($crate::io::source::Source::new())
-)
+            .get_or_init(|| std::sync::Mutex::new($crate::io::source::Source::new_stdin()))
             .lock()
             .unwrap();
         $crate::input! {
@@ -131,7 +130,7 @@ macro_rules! read_value {
         // - Bundled `io` module (= original `io` crate root) after bundler.
         #[allow(unused_mut)]
         let mut locked_stdin = $crate::io::STDIN_SOURCE
-            .get_or_init(|| std::sync::Mutex::new($crate::io::source::Source::new()))
+            .get_or_init(|| std::sync::Mutex::new($crate::io::source::Source::new_stdin()))
             .lock()
             .unwrap();
         $crate::read_value! {
@@ -143,7 +142,7 @@ macro_rules! read_value {
 
 pub fn is_stdin_empty() -> bool {
     let mut lock = crate::STDIN_SOURCE
-        .get_or_init(|| Mutex::new(Source::new()))
+        .get_or_init(|| Mutex::new(Source::new_stdin()))
         .lock()
         .expect("failed to lock stdin source");
     lock.is_empty()

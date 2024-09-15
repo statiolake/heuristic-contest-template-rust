@@ -7,13 +7,13 @@ use std::{
     str::{FromStr, SplitWhitespace},
 };
 
-pub struct Source {
+pub struct Source<R = BufReader<Stdin>> {
     tokens: Peekable<SplitWhitespace<'static>>,
     context: Option<NonNull<str>>,
-    reader: BufReader<Stdin>,
+    reader: R,
 }
 
-impl Drop for Source {
+impl<R> Drop for Source<R> {
     fn drop(&mut self) {
         // set dummy reference to `tokens`
         self.tokens = "".split_whitespace().peekable();
@@ -28,15 +28,27 @@ impl Drop for Source {
     }
 }
 
-impl Source {
-    pub fn new() -> Self {
-        let reader = BufReader::new(stdin());
+impl Source<BufReader<Stdin>> {
+    pub fn new_stdin() -> Self {
+        Self::new(BufReader::new(stdin()))
+    }
+}
 
+impl<R: BufRead> Source<R> {
+    pub fn new(reader: R) -> Self {
         Self {
             tokens: "".split_whitespace().peekable(),
             context: None,
             reader,
         }
+    }
+
+    pub fn as_mut(&mut self) -> Source<&mut dyn BufRead> {
+        if self.context.is_some() {
+            panic!("cannot borrow sources in use");
+        }
+
+        Source::new(&mut self.reader)
     }
 
     fn prepare(&mut self) {
@@ -80,18 +92,18 @@ impl Source {
     }
 }
 
-impl Default for Source {
+impl Default for Source<BufReader<Stdin>> {
     fn default() -> Self {
-        Self::new()
+        Self::new_stdin()
     }
 }
 
 // SAFETY: `context` is not accessed directly.
-unsafe impl Send for Source {}
+unsafe impl<R> Send for Source<R> {}
 
 pub trait Readable {
     type Output;
-    fn read(source: &mut Source) -> Self::Output;
+    fn read<R: BufRead>(source: &mut Source<R>) -> Self::Output;
 }
 
 impl<T: FromStr> Readable for T
@@ -99,7 +111,7 @@ where
     T::Err: fmt::Debug,
 {
     type Output = T;
-    fn read(source: &mut Source) -> T {
+    fn read<R: BufRead>(source: &mut Source<R>) -> T {
         let token = source.next_token().unwrap();
         match token.parse() {
             Ok(v) => v,
@@ -117,7 +129,7 @@ pub enum Chars {}
 
 impl Readable for Chars {
     type Output = Vec<char>;
-    fn read(source: &mut Source) -> Vec<char> {
+    fn read<R: BufRead>(source: &mut Source<R>) -> Vec<char> {
         source.next_token().unwrap().chars().collect()
     }
 }
@@ -126,7 +138,7 @@ pub enum Bytes {}
 
 impl Readable for Bytes {
     type Output = Vec<u8>;
-    fn read(source: &mut Source) -> Vec<u8> {
+    fn read<R: BufRead>(source: &mut Source<R>) -> Vec<u8> {
         source.next_token().unwrap().bytes().collect()
     }
 }
@@ -135,7 +147,7 @@ pub enum Usize1 {}
 
 impl Readable for Usize1 {
     type Output = usize;
-    fn read(source: &mut Source) -> usize {
+    fn read<R: BufRead>(source: &mut Source<R>) -> usize {
         // panic if the subtraction overflows
         usize::read(source)
             .checked_sub(1)
@@ -147,7 +159,7 @@ pub enum Isize1 {}
 
 impl Readable for Isize1 {
     type Output = isize;
-    fn read(source: &mut Source) -> isize {
+    fn read<R: BufRead>(source: &mut Source<R>) -> isize {
         isize::read(source)
             .checked_sub(1)
             .unwrap_or_else(|| panic!("attempted to read isize::MIN as Isize1"))
