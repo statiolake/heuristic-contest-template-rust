@@ -14,7 +14,10 @@ fn main() {
     let name = if let Some(solution_name) = args().nth(1) {
         solution_name
     } else {
-        "naive".to_string()
+        solutions::get_solution_names()
+            .last()
+            .unwrap_or(&"naive")
+            .to_string()
     };
 
     run(&name);
