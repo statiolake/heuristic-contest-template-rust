@@ -2,6 +2,6 @@ use anyhow::Result;
 
 pub mod ahc;
 
-pub fn main(args: &[String]) -> Result<()> {
+pub fn main(_args: &[String]) -> Result<()> {
     ahc::main()
 }

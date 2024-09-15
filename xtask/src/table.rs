@@ -17,7 +17,23 @@ impl Table {
         }
     }
 
+    pub fn validate(&self) {
+        let column_count = self.header.len();
+
+        for row in &self.body {
+            assert_eq!(row.len(), column_count, "Row has different column count");
+        }
+
+        assert_eq!(
+            self.footer.len(),
+            column_count,
+            "Footer has different column count"
+        );
+    }
+
     pub fn print(&self) {
+        self.validate();
+
         let column_content_widths = self.calculate_column_content_widths();
 
         self.print_row(&self.header, &column_content_widths);
@@ -67,6 +83,12 @@ impl Table {
         .map(|cell| UnicodeWidthStr::width(&*cell.content))
         .max()
         .unwrap_or(1)
+    }
+}
+
+impl Default for Table {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

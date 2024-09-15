@@ -1,12 +1,13 @@
-use anyhow::{anyhow, Context as _, Result};
-use core::fmt;
+use anyhow::{bail, Context as _, Result};
+use io::{source::Source, InitInput};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use solutions::get_solution_names;
 use std::path::{Path, PathBuf};
+use std::{collections::HashMap, io::BufReader};
 use std::{fs, hash::Hash};
 use std::{
     fs::File,
@@ -16,46 +17,89 @@ use std::{io::Write, time::Instant};
 
 use crate::table::{Alignment, Table, TableCell};
 
-static SOLUTIONS: Lazy<Vec<Solution>> =
-    Lazy::new(|| vec![Solution::new("naive"), Solution::new("turn_base")]);
+static ABSOLUTE_BETTER: AbsoluteBetterIs = AbsoluteBetterIs::Maximum;
+
+static SOLUTIONS: Lazy<Vec<Solution>> = Lazy::new(|| {
+    get_solution_names()
+        .into_iter()
+        .map(Solution::new)
+        .collect_vec()
+});
 
 static PRIMARY_SOLUTION: Lazy<Solution> = Lazy::new(|| SOLUTIONS.last().cloned().unwrap());
 
-static ABSOLUTE_BETTER: AbsoluteBetterIs = AbsoluteBetterIs::Minimum;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Cache {
+    cache_path: PathBuf,
+    seeds_txt_hash: Option<String>,
+    results: HashMap<Solution, HashMap<Seed, TestCaseResult>>,
+}
+
+impl Cache {
+    pub fn load_or_new(cache_path: &Path) -> Result<Self> {
+        Self::load(cache_path).or_else(|_| Ok(Self::new(cache_path.to_owned())))
+    }
+
+    pub fn new(cache_path: PathBuf) -> Self {
+        Self {
+            cache_path,
+            seeds_txt_hash: None,
+            results: HashMap::new(),
+        }
+    }
+
+    pub fn load(cache_path: &Path) -> Result<Self> {
+        let file = File::open(cache_path).context("failed to open cached results file")?;
+        serde_json::from_reader(file).context("failed to parse cached results")
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let file =
+            File::create(&self.cache_path).context("failed to create cached results file")?;
+        serde_json::to_writer(file, self).context("failed to serialize cached results into JSON")
+    }
+}
+
+impl Drop for Cache {
+    fn drop(&mut self) {
+        if let Err(e) = self.save() {
+            eprintln!("failed to save cache: {e}");
+        }
+    }
+}
 
 pub fn main() -> Result<()> {
     let tester = Tester::detect().context("failed to detect testing tools")?;
-    let pickle_path = tester.testing_dir.join("results.json");
-
-    let mut results: HashMap<Solution, HashMap<Seed, TestCaseResult>> = if pickle_path.exists() {
-        let file = File::open(&pickle_path).context("failed to open cached results file")?;
-        serde_json::from_reader(file).context("failed to parse cached results")?
-    } else {
-        HashMap::new()
-    };
+    let cache_path = tester.testing_dir.join("cache.json");
+    let mut cache = Cache::load_or_new(&cache_path)?;
 
     for solution in &*SOLUTIONS {
-        let env = TestEnvironment::new(tester.clone(), solution.clone())
+        if solution != &*PRIMARY_SOLUTION && cache.results.contains_key(solution) {
+            eprintln!(
+                "skipping non-primary and cached solution: {}",
+                solution.inner()
+            );
+            continue;
+        }
+
+        eprintln!("running solution: {}", solution.inner());
+        let env = TestEnvironment::new(&mut cache, tester.clone(), solution.clone())
             .context("failed to initialize test environment")?;
         let seeds = env.seeds.clone();
         if solution != &*PRIMARY_SOLUTION
-            && results.contains_key(solution)
-            && results[solution].keys().cloned().collect_vec() == seeds
+            && cache.results.contains_key(solution)
+            && cache.results[solution].keys().cloned().collect_vec() == seeds
         {
             continue;
         }
 
-        results.insert(
+        cache.results.insert(
             solution.clone(),
             env.run_solution().context("failed to run solution")?,
         );
     }
 
-    TablePrinter::new(results.clone()).print();
-
-    let file = File::create(&pickle_path).context("failed to create cached results file")?;
-    serde_json::to_writer_pretty(file, &results)
-        .context("failed to serialize cached results into JSON")?;
+    TablePrinter::new(cache.results.clone()).print();
 
     Ok(())
 }
@@ -109,43 +153,9 @@ impl AbsoluteBetterIs {
 struct TestCaseResult {
     seed: Seed,
     in_filename: String,
-    description: TestCaseDescription,
+    init_input: InitInput,
     score: Result<u64, ()>,
-    duration_millis: i32,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct TestCaseDescription {
-    n: i32,
-}
-
-impl fmt::Display for TestCaseDescription {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: add more fields
-        write!(f, "N = {}", self.n)
-    }
-}
-
-impl TestCaseDescription {
-    pub fn parse(in_file_content: &str) -> Result<Self> {
-        let mut iter = in_file_content.split_whitespace();
-        let mut next_token = move || {
-            iter.next()
-                .ok_or_else(|| anyhow!("reached EOF while parsing input file"))
-        };
-
-        let n = next_token()?.parse()?;
-
-        Ok(Self { n })
-    }
-
-    pub fn keys() -> Vec<&'static str> {
-        vec!["N"]
-    }
-
-    pub fn values(&self) -> Vec<String> {
-        vec![self.n.to_string()]
-    }
+    duration_millis: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -229,13 +239,14 @@ struct TestEnvironment {
 }
 
 impl TestEnvironment {
-    fn new(tester: Tester, target_solution: Solution) -> Result<Self> {
+    fn new(cache: &mut Cache, tester: Tester, target_solution: Solution) -> Result<Self> {
         let in_dir = Path::new("testing").join("in");
         let out_dir = Path::new("testing")
             .join("out")
             .join(target_solution.inner());
 
-        let seeds = Self::ensure_seeds(&tester, &in_dir).context("failed to ensure seeds")?;
+        let seeds =
+            Self::ensure_seeds(cache, &tester, &in_dir).context("failed to ensure seeds")?;
         let in_filenames: Vec<_> = fs::read_dir(&in_dir)
             .context("failed to read input directories")?
             .filter_map(Result::ok)
@@ -260,7 +271,20 @@ impl TestEnvironment {
         })
     }
 
-    fn ensure_seeds(tester: &Tester, in_dir: &Path) -> Result<Vec<Seed>> {
+    fn ensure_seeds(cache: &mut Cache, tester: &Tester, in_dir: &Path) -> Result<Vec<Seed>> {
+        let seeds_txt_contents = fs::read_to_string(tester.testing_dir.join("seeds.txt"))
+            .context("failed to read seeds.txt")?;
+        let seeds_txt_hash = sha256::digest(&seeds_txt_contents);
+        let seeds: Vec<_> = seeds_txt_contents.lines().map(Seed::new).collect();
+
+        if in_dir.exists() && cache.seeds_txt_hash.as_ref() == Some(&seeds_txt_hash) {
+            eprintln!("seeds.txt is not changed; reusing seeds");
+            return Ok(seeds);
+        }
+
+        cache.seeds_txt_hash = Some(seeds_txt_hash);
+        eprintln!("regenerating seeds");
+
         if in_dir.exists() {
             fs::remove_dir_all(in_dir).context("failed to remove existing input directory")?;
         }
@@ -282,12 +306,6 @@ impl TestEnvironment {
                 )
             })?;
 
-        let seeds: Vec<_> = fs::read_to_string(tester.testing_dir.join("seeds.txt"))
-            .context("failed to read seeds.txt")?
-            .lines()
-            .map(Seed::new)
-            .collect();
-
         Ok(seeds)
     }
 
@@ -305,11 +323,16 @@ impl TestEnvironment {
         self.ensure_out_dir()
             .context("failed to ensure output directory")?;
 
-        Command::new("cargo")
+        eprintln!("building binary");
+        let out = Command::new("cargo")
             .args(["build", "--release"])
             .spawn()
             .context("failed to execute solution binary")?
             .wait()?;
+
+        if !out.success() {
+            bail!("failed to build solution binary");
+        }
 
         let results: HashMap<Seed, TestCaseResult> = (0..self.in_filenames.len())
             .into_par_iter()
@@ -350,8 +373,8 @@ impl TestEnvironment {
 
         let in_file_content =
             fs::read_to_string(&in_file_path).context("failed to read input file contents")?;
-        let description = TestCaseDescription::parse(&in_file_content)
-            .context("failed to parse input file contents")?;
+        let init_input =
+            InitInput::read_from(&mut Source::new(BufReader::new(in_file_content.as_bytes())));
 
         let start_time = Instant::now();
 
@@ -368,6 +391,7 @@ impl TestEnvironment {
         } else {
             // Non-interactive
             Command::new(Path::new("target").join("release").join("main"))
+                .env("RUST_BACKTRACE", "1")
                 .arg(self.target_solution.inner())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -385,7 +409,7 @@ impl TestEnvironment {
         let output = main_process
             .wait_with_output()
             .context("failed to wait for main process to finish")?;
-        let duration_millis = start_time.elapsed().as_millis() as i32;
+        let duration_millis = start_time.elapsed().as_millis() as i64;
 
         fs::write(&out_file_path, &output.stdout).context("failed to write stdout to file")?;
         fs::write(&err_file_path, &output.stderr).context("failed to write stderr to file")?;
@@ -395,7 +419,8 @@ impl TestEnvironment {
             .output()
             .context("failed to run visualizer")?;
 
-        let vis_out_output = String::from_utf8_lossy(&output.stdout);
+        let vis_out_output = String::from_utf8_lossy(&output.stdout).into_owned()
+            + &String::from_utf8_lossy(&output.stderr);
         let re = Regex::new(r"Score = (?<score>\d*)").unwrap();
         let score = re
             .captures(&vis_out_output)
@@ -416,14 +441,22 @@ impl TestEnvironment {
             .append(true)
             .open(&err_file_path)
             .context("failed to open stdout file")?
-            .write_all(&output.stdout)
+            .write_all(vis_out_output.as_bytes())
             .context("failed to append visualizer stdout")?;
+
+        // Append duration
+        File::options()
+            .append(true)
+            .open(&err_file_path)
+            .context("failed to open stdout file")?
+            .write_all(format!("\nDuration: {} ms\n", duration_millis).as_bytes())
+            .context("failed to append duration")?;
 
         Ok(TestCaseResult {
             in_filename: in_filename.clone(),
             seed: seed.clone(),
             score,
-            description,
+            init_input,
             duration_millis,
         })
     }
@@ -488,7 +521,7 @@ impl TablePrinter {
         });
 
         // Parameters
-        for key in TestCaseDescription::keys() {
+        for key in InitInput::description_keys() {
             table.header.push(TableCell {
                 content: key.to_string(),
                 alignment: Alignment::Left,
@@ -536,7 +569,7 @@ impl TablePrinter {
             });
 
             // Parameters
-            for value in primary_result.description.values() {
+            for value in primary_result.init_input.description_values() {
                 row.push(TableCell {
                     content: value.clone(),
                     alignment: Alignment::Right,
@@ -590,10 +623,12 @@ impl TablePrinter {
         });
 
         // Parameters
-        table.footer.push(TableCell {
-            content: "".to_string(),
-            alignment: Alignment::Left,
-        });
+        for _ in InitInput::description_keys() {
+            table.footer.push(TableCell {
+                content: "".to_string(),
+                alignment: Alignment::Left,
+            });
+        }
 
         // Solutions
         for solution in &*SOLUTIONS {
