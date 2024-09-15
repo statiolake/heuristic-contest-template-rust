@@ -2,6 +2,52 @@ local is_unix = vim.fn.has("unix") == 1
 local is_win = vim.fn.has("win32") == 1
 local is_wsl = is_unix and vim.fn.stridx(vim.fn.system("uname -a"), "WSL2") >= 0
 
+local function parse_primary_solution()
+	local file_path = "solutions/src/lib.rs"
+
+	-- ファイルの内容を読み込む
+	local file = io.open(file_path, "r")
+	if not file then
+		print("Failed to open file: " .. file_path)
+		return
+	end
+	local content = file:read("*all")
+	file:close()
+
+	-- 最後の define_solutions! 行を見つける
+	local define_solutions_line = content:match("define_solutions!%[.-%]%s*;?%s*$")
+
+	if not define_solutions_line then
+		print("define_solutions! not found")
+		return
+	end
+
+	-- マクロの引数を抽出
+	local solutions = define_solutions_line:match("%[(.+)%]")
+	if not solutions then
+		print("No solutions found in define_solutions!")
+		return
+	end
+
+	-- 最後の要素を取得
+	local last_solution = solutions:match("([^ ,]+)[%s,]*$")
+	if not last_solution then
+		print("No valid solution found")
+		return
+	end
+
+	-- snake_case に変換
+	local snake_case = last_solution
+		:gsub("\n", "")
+		:gsub("(%u)", function(c)
+			return "_" .. c:lower()
+		end)
+		:gsub("^_", "")
+	snake_case = snake_case:gsub("_solution$", "")
+
+	return snake_case
+end
+
 local clipboard
 if is_unix and vim.fn.executable("wl-copy") ~= 0 then
 	clipboard = "wl-copy"
@@ -11,17 +57,42 @@ elseif is_win or is_wsl then
 	clipboard = "clip.exe"
 end
 
-local function open_result(dir, id)
-	dir = dir or "testing/out"
+local function make_file_path(dir_override, kind, id)
 	if id < 0 then
 		return
 	end
+
+	local components = {}
+
+	if dir_override then
+		table.insert(components, dir_override)
+	else
+		table.insert(components, "testing")
+		if kind == "in" then
+			table.insert(components, "in")
+		else
+			table.insert(components, "out")
+			table.insert(components, parse_primary_solution())
+		end
+	end
+
+	local file_name = string.format("%04d.txt%s", id, kind == "err" and ".stderr" or "")
+	table.insert(components, file_name)
+
+	return vim.fn.expand(table.concat(components, "/"))
+end
+
+local function open_result(dir, id)
+	if id < 0 then
+		return
+	end
+
 	local bufname = vim.fn.expand("%:t") --[[@as string]]
 	if not vim.endswith(bufname, ".txt.stderr") then
 		vim.cmd("tabnew")
 	end
-	id = string.format("%04d", id)
-	vim.cmd(string.format("edit %s/%s.txt.stderr", dir, id))
+
+	vim.cmd(string.format("edit %s", make_file_path(dir, "err", id)))
 end
 
 local function parse_bufname()
@@ -34,11 +105,11 @@ local function parse_bufname()
 end
 
 vim.api.nvim_create_user_command("Bundle", string.format("!cargo xtask bundle | %s", clipboard), {})
-vim.api.nvim_create_user_command("Run", "!python testing/run_tests.py", {})
+vim.api.nvim_create_user_command("Run", "!cargo xtask test", {})
 vim.api.nvim_create_user_command("Visualize", function(ctx)
-	local id = string.format("%04d", tonumber(ctx.fargs[1]))
-	local in_file_name = vim.fn.expand(string.format("testing/in/%s.txt", id))
-	local out_file_name = vim.fn.expand(string.format("testing/out/%s.txt", id))
+	local id = tonumber(ctx.fargs[1])
+	local in_file_name = make_file_path(nil, "in", id)
+	local out_file_name = make_file_path(nil, "out", id)
 	vim.cmd(string.format("!%s < %s", clipboard, in_file_name))
 	vim.cmd("sleep 1")
 	vim.cmd(string.format("!%s < %s", clipboard, out_file_name))
