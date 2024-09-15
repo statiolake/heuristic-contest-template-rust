@@ -5,6 +5,7 @@ Cargo.lock
 !/testing/out
 !/testing/tools
 /testing/*/*
+!/testing/seeds.txt
 !/testing/in/.gitkeep
 !/testing/out/.gitkeep
 !/testing/tools/.gitkeep
