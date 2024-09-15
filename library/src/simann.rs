@@ -32,7 +32,7 @@ impl SimAnn {
 
     pub fn should_adopt<R: Rng>(&self, gen: &mut R, prev_score: f64, new_score: f64) -> bool {
         let ratio = self.timer.elapsed().as_millis() as f64 / self.duration.as_millis() as f64;
-        let ratio = ratio.min(1.0).max(0.0);
+        let ratio = ratio.clamp(0.0, 1.0);
         let temp = self.start_temp * (1.0 - ratio) + self.end_temp * ratio;
         if temp < 1e-8 {
             match self.mode {

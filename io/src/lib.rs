@@ -1,8 +1,12 @@
+extern crate types;
+
 use std::{
     fmt,
+    io::BufRead,
     sync::{Mutex, OnceLock},
 };
 
+use itertools::{izip, Itertools};
 use source::Source;
 
 pub mod io;
@@ -21,26 +25,68 @@ macro_rules! input {
 }
 
 #[derive(Debug, Clone)]
-pub struct Output;
+pub struct Output {
+    pub operations: Vec<Operation>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Operation {}
+
+impl Operation {}
 
 impl fmt::Display for Output {
+    fn fmt(&self, b: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(b, "{}", self.operations.len())?;
+        for op in &self.operations {
+            writeln!(b, "{}", op)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for Operation {
     fn fmt(&self, _b: &mut fmt::Formatter) -> fmt::Result {
         todo!()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct InitInput {}
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "local", derive(serde::Serialize, serde::Deserialize))]
+pub struct InitInput {
+    #[cfg_attr(feature = "local", serde(skip))]
+    _example: (),
+}
 
 impl InitInput {
     pub fn read() -> InitInput {
-        input! {}
+        let mut locked_stdin = STDIN_SOURCE
+            .get_or_init(|| std::sync::Mutex::new(source::Source::new_stdin()))
+            .lock()
+            .unwrap();
+        Self::read_from(&mut *locked_stdin)
+    }
 
-        InitInput {}
+    pub fn read_from<R: BufRead>(source: &mut Source<R>) -> InitInput {
+        input! {
+            from source,
+        }
+
+        todo!()
+    }
+
+    pub fn description_keys() -> Vec<&'static str> {
+        vec![]
+    }
+
+    pub fn description_values(&self) -> Vec<String> {
+        vec![]
     }
 
     pub fn describe(&self) -> String {
-        "TODO: insert description here".into()
+        izip!(Self::description_keys(), self.description_values(),)
+            .map(|(key, value)| format!("{key} = {value}"))
+            .join(", ")
     }
 }
 
