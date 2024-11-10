@@ -9,8 +9,8 @@ edition = "2021"
 [dependencies]
 io = { path = "../io" }
 types = { path = "../types" }
-itertools = { workspace = true }
-rand = { workspace = true }
-regex = { workspace = true }
-smallvec = { workspace = true }
-ordered-float = { workspace = true }
+itertools.workspace = true
+rand.workspace = true
+# regex.workspace = true
+# smallvec.workspace = true
+# ordered-float.workspace = true
