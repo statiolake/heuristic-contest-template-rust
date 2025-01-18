@@ -56,7 +56,15 @@ if is_unix and vim.fn.executable 'wl-copy' ~= 0 then
 elseif is_unix and vim.fn.executable 'xsel' ~= 0 then
   clipboard = 'xsel -bi'
 elseif is_win or is_wsl then
-  clipboard = 'clip.exe'
+  if vim.fn.executable 'win32yank.exe' ~= 0 then
+    clipboard = 'win32yank.exe -i'
+  else
+    vim.notify(
+      '[vimrc] win32yank not found. fallback to clip.exe, but it may collapse on non-ASCII chars',
+      vim.log.levels.WARN
+    )
+    clipboard = 'clip.exe'
+  end
 end
 
 local function make_file_path(dir_override, kind, id)
