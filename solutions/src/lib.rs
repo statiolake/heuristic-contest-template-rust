@@ -1,9 +1,9 @@
 extern crate io;
-extern crate types;
+extern crate referee;
 
 use std::ops::ControlFlow;
 
-use io::{InitInput, Output, TurnInput};
+use referee::{InitInput, Output, TurnInput};
 
 pub mod naive;
 

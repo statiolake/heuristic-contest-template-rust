@@ -1,8 +1,9 @@
 use anyhow::{bail, Context as _, Result};
-use io::{source::Source, InitInput};
+use io::{source::Source, traits::ReadInput};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
+use referee::InitInput;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use solutions::get_solution_names;

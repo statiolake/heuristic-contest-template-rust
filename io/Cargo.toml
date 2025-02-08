@@ -7,9 +7,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-types = { path = "../types", features = ["local"] }
+referee.workspace = true
 itertools.workspace = true
-serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
-local = ["serde"]
+local = []

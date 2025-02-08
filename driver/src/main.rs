@@ -1,8 +1,9 @@
 extern crate io;
+extern crate referee;
 extern crate solutions;
-extern crate types;
 
-use io::{InitInput, TurnInput};
+use io::traits::{ReadInput, WriteOutput};
+use referee::{InitInput, TurnInput};
 use solutions::create_solution;
 use std::{env::args, error::Error, ops::ControlFlow, time::Duration};
 
@@ -31,9 +32,9 @@ fn run(name: &str) {
     loop {
         let input = TurnInput::read();
         match brain.think(input) {
-            ControlFlow::Continue(output) => println!("{}", output),
+            ControlFlow::Continue(output) => output.write(),
             ControlFlow::Break(output) => {
-                println!("{}", output);
+                output.write();
                 break;
             }
         }

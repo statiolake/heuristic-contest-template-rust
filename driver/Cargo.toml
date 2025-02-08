@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-solutions = { path = "../solutions" }
-io = { path = "../io" }
-library = { path = "../library" }
-types = { path = "../types" }
+solutions.workspace = true
+io.workspace = true
+library.workspace = true
+referee.workspace = true

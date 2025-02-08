@@ -1,6 +1,6 @@
 use crate::Solution;
-use io::{InitInput, Output, TurnInput};
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
+use referee::{InitInput, Output, TurnInput};
 use std::{ops::ControlFlow, time::Instant};
 
 #[derive(Debug, Clone)]

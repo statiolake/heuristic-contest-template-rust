@@ -1,17 +1,18 @@
-extern crate types;
+extern crate referee;
 
 use std::{
-    fmt,
-    io::BufRead,
+    io::{BufRead, Write},
     sync::{Mutex, OnceLock},
 };
 
-use itertools::{izip, Itertools};
+use referee::{InitInput, Output, TurnInput};
 use source::Source;
+use traits::{ReadInput, WriteOutput};
 
 pub mod io;
 pub mod macros;
 pub mod source;
+pub mod traits;
 
 pub static STDIN_SOURCE: OnceLock<Mutex<Source>> = OnceLock::new();
 
@@ -24,79 +25,33 @@ macro_rules! input {
     };
 }
 
-#[derive(Debug, Clone)]
-pub struct Output {
-    pub operations: Vec<Operation>,
-}
+// Implementation for each inputs
 
-#[derive(Debug, Clone)]
-pub struct Operation {}
-
-impl Operation {}
-
-impl fmt::Display for Output {
-    fn fmt(&self, b: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(b, "{}", self.operations.len())?;
-        for op in &self.operations {
-            writeln!(b, "{}", op)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl fmt::Display for Operation {
-    fn fmt(&self, _b: &mut fmt::Formatter) -> fmt::Result {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "local", derive(serde::Serialize, serde::Deserialize))]
-pub struct InitInput {
-    #[cfg_attr(feature = "local", serde(skip))]
-    _example: (),
-}
-
-impl InitInput {
-    pub fn read() -> InitInput {
-        let mut locked_stdin = STDIN_SOURCE
-            .get_or_init(|| std::sync::Mutex::new(source::Source::new_stdin()))
-            .lock()
-            .unwrap();
-        Self::read_from(&mut *locked_stdin)
-    }
-
-    pub fn read_from<R: BufRead>(source: &mut Source<R>) -> InitInput {
+impl ReadInput for InitInput {
+    fn read_from<R: BufRead>(source: &mut Source<R>) -> InitInput {
         input! {
             from source,
         }
 
-        todo!()
-    }
-
-    pub fn description_keys() -> Vec<&'static str> {
-        vec![]
-    }
-
-    pub fn description_values(&self) -> Vec<String> {
-        vec![]
-    }
-
-    pub fn describe(&self) -> String {
-        izip!(Self::description_keys(), self.description_values(),)
-            .map(|(key, value)| format!("{key} = {value}"))
-            .join(", ")
+        InitInput {}
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TurnInput {}
-
-impl TurnInput {
-    pub fn read() -> TurnInput {
-        input! {}
+impl ReadInput for TurnInput {
+    fn read_from<R: BufRead>(source: &mut Source<R>) -> Self {
+        input! {
+            from source,
+        }
 
         TurnInput {}
+    }
+}
+
+impl WriteOutput for Output {
+    fn write_to<W: Write>(&self, b: &mut W) {
+        writeln!(b, "{}", self.operations.len()).unwrap();
+        for operation in &self.operations {
+            writeln!(b, "{}", operation).unwrap();
+        }
     }
 }

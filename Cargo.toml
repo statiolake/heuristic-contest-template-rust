@@ -6,6 +6,14 @@ resolver = "2"
 
 # Initially enables crates available at both of AtCoder and CodinGame.
 [workspace.dependencies]
+xtask = { path = "./xtask", features = ["local"] }
+driver = { path = "./driver", features = ["local"] }
+library = { path = "./library", features = ["local"] }
+types = { path = "./types", features = ["local"] }
+io = { path = "./io", features = ["local"] }
+referee = { path = "./referee", features = ["local"] }
+solutions = { path = "./solutions", features = ["local"] }
+
 itertools = "=0.11.0"
 rand = { version = "=0.8.5", features = ["small_rng"] }
 regex = "=1.9.1"
