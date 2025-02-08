@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Result};
+use miette::{miette, Context, IntoDiagnostic, Result};
 use quote::ToTokens;
 use std::{
     collections::{HashMap, VecDeque},
-    fs::read_to_string,
+    fs::{self, read_to_string},
     mem::replace,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -16,13 +16,19 @@ use syn::{
     File, Ident, Item, ItemExternCrate, ItemMod, ItemUse, PathSegment, UseName, UsePath, UseTree,
     Visibility,
 };
+use toml::{Table, Value};
 
-pub fn main(_args: &[String]) -> Result<()> {
+pub fn main(args: &[String]) -> Result<()> {
+    let skip_check = !args.is_empty() && args[0] == "--skip-check";
+
     let file_path: PathBuf = vec!["driver", "src", "main.rs"].into_iter().collect();
     let parsed = expand(&file_path)?;
 
     let stream = parsed.to_token_stream();
     let formatted = format(&stream.to_string())?;
+    if !skip_check {
+        check_compile(&formatted)?;
+    }
     println!("{}", formatted);
 
     Ok(())
@@ -41,7 +47,7 @@ fn fix_use_all(
     struct ItemUseVisitor<'a> {
         crate_ident: &'a str,
         external_crate_idents: &'a [String],
-        error: Option<anyhow::Error>,
+        error: Option<miette::Error>,
     }
 
     impl VisitMut for ItemUseVisitor<'_> {
@@ -134,7 +140,7 @@ fn fix_path_all(
     struct PathVisitor<'a> {
         crate_ident: &'a str,
         external_crate_idents: &'a [String],
-        error: Option<anyhow::Error>,
+        error: Option<miette::Error>,
     }
 
     impl VisitMut for PathVisitor<'_> {
@@ -219,7 +225,7 @@ pub fn expand_mod(
     }
 
     let file_path = find_mod_file(module, container_path)
-        .ok_or_else(|| anyhow!("failed to find module source: {}", module.ident))?;
+        .ok_or_else(|| miette!("failed to find module source: {}", module.ident))?;
     let parsed = expand_file_under_crate(crate_ident, &file_path)?;
 
     module.content = Some((Brace(module.semi.span()), parsed.items));
@@ -264,9 +270,24 @@ fn extract_extern_crates(parsed: &mut File) -> Vec<ItemExternCrate> {
 }
 
 fn expand_file_under_crate(crate_ident: Option<&str>, file_path: &Path) -> Result<File> {
-    let source = read_to_string(file_path)?;
-    let mut parsed: File = parse_str(&source)?;
-    expand_mod_all(crate_ident, &mut parsed, file_path)?;
+    let source = read_to_string(file_path)
+        .into_diagnostic()
+        .wrap_err_with(|| {
+            format!(
+                "failed to read `{}` under crate `{:?}`",
+                file_path.display(),
+                crate_ident
+            )
+        })?;
+    let mut parsed: File = parse_str(&source).into_diagnostic().wrap_err_with(|| {
+        format!(
+            "failed to parse `{}` under crate `{:?}`",
+            file_path.display(),
+            crate_ident
+        )
+    })?;
+    expand_mod_all(crate_ident, &mut parsed, file_path)
+        .wrap_err_with(|| format!("failed to expand crate `{:?}`", crate_ident))?;
 
     Ok(parsed)
 }
@@ -275,23 +296,31 @@ fn expand_crate(
     crate_ident: Option<&str>,
     file_path: &Path,
 ) -> Result<(File, Vec<ItemExternCrate>)> {
-    let source = read_to_string(file_path)?;
-    let mut parsed: File = parse_str(&source)?;
+    let source = read_to_string(file_path)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("failed to read {}", file_path.display()))?;
+    let mut parsed: File = parse_str(&source)
+        .into_diagnostic()
+        .wrap_err("failed to parse source")?;
     let extern_crates = extract_extern_crates(&mut parsed);
-    expand_mod_all(crate_ident, &mut parsed, file_path)?;
+    expand_mod_all(crate_ident, &mut parsed, file_path)
+        .wrap_err_with(|| format!("failed to expand all modules for crate `{crate_ident:?}`"))?;
 
     let external_crate_idents = extern_crates
         .iter()
         .map(|krate| krate.ident.to_string())
         .collect::<Vec<_>>();
-    fix_use_all(crate_ident, &external_crate_idents, &mut parsed)?;
-    fix_path_all(crate_ident, &external_crate_idents, &mut parsed)?;
+    fix_use_all(crate_ident, &external_crate_idents, &mut parsed)
+        .wrap_err_with(|| format!("failed to fix `use` for crate `{crate_ident:?}`"))?;
+    fix_path_all(crate_ident, &external_crate_idents, &mut parsed)
+        .wrap_err_with(|| format!("failed to fix path for crate `{crate_ident:?}`"))?;
 
     Ok((parsed, extern_crates))
 }
 
 pub fn expand(file_path: &Path) -> Result<File> {
-    let (mut main_crate, extern_crates) = expand_crate(None, file_path)?;
+    let (mut main_crate, extern_crates) = expand_crate(None, file_path)
+        .wrap_err_with(|| format!("failed to expand crates at `{}`", file_path.display()))?;
 
     let mut expanded_crates = HashMap::new();
     let mut queue = VecDeque::from(extern_crates);
@@ -304,7 +333,13 @@ pub fn expand(file_path: &Path) -> Result<File> {
         let path: PathBuf = vec![&*crate_ident.replace('_', "-"), "src", "lib.rs"]
             .into_iter()
             .collect();
-        let (expanded, another_extern_crates) = expand_crate(Some(&crate_ident), &path)?;
+        let (expanded, another_extern_crates) = expand_crate(Some(&crate_ident), &path)
+            .wrap_err_with(|| {
+                format!(
+                    "failed to expand crate `{crate_ident:?}` at `{}`",
+                    path.display()
+                )
+            })?;
         queue.extend(another_extern_crates);
         expanded_crates.insert(crate_ident, expanded);
     }
@@ -332,12 +367,99 @@ pub fn format(source: &str) -> Result<String> {
     let mut proc = Command::new("rustfmt")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .spawn()?;
+        .spawn()
+        .into_diagnostic()
+        .wrap_err("failed to invoke rustfmt")?;
 
     let mut stdin = proc.stdin.take().unwrap();
-    write!(stdin, "{}", source)?;
+    write!(stdin, "{}", source)
+        .into_diagnostic()
+        .wrap_err("failed to write source to rustfmt's stdin")?;
     drop(stdin);
 
-    let output = proc.wait_with_output()?;
+    let output = proc
+        .wait_with_output()
+        .into_diagnostic()
+        .wrap_err("rustfmt failed")?;
+
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+pub fn check_compile(source: &str) -> Result<()> {
+    let temp_dir = tempfile::tempdir()
+        .into_diagnostic()
+        .wrap_err("failed to create temporary directory")?;
+
+    // Create new cargo project to temporary directory
+    let status = Command::new("cargo")
+        .arg("new")
+        .arg("--bin")
+        .arg("submission")
+        .current_dir(temp_dir.path())
+        .spawn()
+        .into_diagnostic()
+        .wrap_err("failed to spawn cargo")?
+        .wait()
+        .into_diagnostic()
+        .wrap_err("failed to wait cargo")?;
+    if !status.success() {
+        return Err(miette!("failed to create new cargo project"));
+    }
+
+    let crate_root_path = temp_dir.path().join("submission");
+
+    // Update dependencies
+    let mut manifest = fs::read_to_string(crate_root_path.join("Cargo.toml"))
+        .into_diagnostic()
+        .wrap_err("failed to read temporary manifest")?
+        .parse::<Table>()
+        .into_diagnostic()
+        .wrap_err("failed to parse temporary diagnostic")?;
+    let workspace_manifest = fs::read_to_string("Cargo.toml")
+        .into_diagnostic()
+        .wrap_err("failed to read original manifest")?
+        .parse::<Table>()
+        .into_diagnostic()
+        .wrap_err_with(|| "failed to parse original manifest")?;
+    let judge_dependencies = workspace_manifest["workspace"]["dependencies"]
+        .as_table()
+        .expect("dependencies should be a table")
+        .iter()
+        .filter_map(|(k, v)| match v {
+            Value::String(_) => Some((k.to_owned(), v.to_owned())),
+            Value::Table(t) if !t.contains_key("path") => Some((k.to_owned(), v.to_owned())),
+            _ => None,
+        })
+        .collect::<Table>();
+    manifest["dependencies"] = Value::Table(judge_dependencies);
+    fs::write(
+        crate_root_path.join("Cargo.toml"),
+        toml::to_string_pretty(&manifest)
+            .into_diagnostic()
+            .wrap_err("failed to serialize manifest")?,
+    )
+    .into_diagnostic()
+    .wrap_err("failed to write to temporary manifest")?;
+
+    // Update source
+    fs::write(crate_root_path.join("src").join("main.rs"), source)
+        .into_diagnostic()
+        .wrap_err("failed to update temporary main.rs")?;
+
+    // Test compile
+    let status = Command::new("cargo")
+        .arg("check")
+        .current_dir(crate_root_path)
+        .spawn()
+        .into_diagnostic()
+        .wrap_err("failed to spawn cargo check")?
+        .wait()
+        .into_diagnostic()
+        .wrap_err("failed to wait cargo check")?;
+
+    if !status.success() {
+        return Err(miette!("bundled source failed to compile"));
+    }
+
+    Ok(())
 }

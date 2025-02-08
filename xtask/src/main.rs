@@ -1,29 +1,14 @@
-use anyhow::{bail, ensure, Context as _, Result};
+use miette::{bail, ensure, Context as _, IntoDiagnostic, Result};
 use std::{
     env::{self, args},
-    error::Error,
     path::PathBuf,
-    process,
 };
 
 pub mod bundle;
 pub mod table;
 pub mod test;
 
-fn main() {
-    if let Err(e) = imp() {
-        eprintln!("error: {e}");
-        let mut curr: &dyn Error = &*e;
-        while let Some(cause) = curr.source() {
-            eprintln!("caused by: {cause}");
-            curr = cause;
-        }
-
-        process::exit(1);
-    }
-}
-
-fn imp() -> Result<()> {
+fn main() -> Result<()> {
     let args: Vec<String> = args().collect();
     ensure!(args.len() > 1, "no task specified");
     ensure_project_root().context("failed to determine project root")?;
@@ -38,14 +23,18 @@ fn imp() -> Result<()> {
 fn ensure_project_root() -> Result<()> {
     let manifest_path = find_upwards("Cargo.toml")?;
     let project_root = manifest_path.parent().expect("Cargo.toml has no parent");
-    env::set_current_dir(project_root)?;
+    env::set_current_dir(project_root)
+        .into_diagnostic()
+        .wrap_err("failed to adjust current directory")?;
     eprintln!("project root: {}", project_root.display());
 
     Ok(())
 }
 
 fn find_upwards(name: &str) -> Result<PathBuf> {
-    let mut current_dir = env::current_dir()?;
+    let mut current_dir = env::current_dir()
+        .into_diagnostic()
+        .wrap_err("failed to get current directory")?;
     loop {
         let path = current_dir.join(name);
         if path.is_file() {

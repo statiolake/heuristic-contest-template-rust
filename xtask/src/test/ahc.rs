@@ -1,6 +1,6 @@
-use anyhow::{bail, Context as _, Result};
 use io::{source::Source, traits::ReadInput};
 use itertools::Itertools;
+use miette::{bail, IntoDiagnostic, Result, WrapErr};
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use referee::InitInput;
@@ -50,14 +50,21 @@ impl Cache {
     }
 
     pub fn load(cache_path: &Path) -> Result<Self> {
-        let file = File::open(cache_path).context("failed to open cached results file")?;
-        serde_json::from_reader(file).context("failed to parse cached results")
+        let file = File::open(cache_path)
+            .into_diagnostic()
+            .wrap_err("failed to open cached results file")?;
+        serde_json::from_reader(file)
+            .into_diagnostic()
+            .wrap_err("failed to parse cached results")
     }
 
     pub fn save(&self) -> Result<()> {
-        let file =
-            File::create(&self.cache_path).context("failed to create cached results file")?;
-        serde_json::to_writer(file, self).context("failed to serialize cached results into JSON")
+        let file = File::create(&self.cache_path)
+            .into_diagnostic()
+            .wrap_err("failed to create cached results file")?;
+        serde_json::to_writer(file, self)
+            .into_diagnostic()
+            .wrap_err("failed to serialize cached results into JSON")
     }
 }
 
@@ -70,7 +77,7 @@ impl Drop for Cache {
 }
 
 pub fn main() -> Result<()> {
-    let tester = Tester::detect().context("failed to detect testing tools")?;
+    let tester = Tester::detect().wrap_err("failed to detect testing tools")?;
     let cache_path = tester.testing_dir.join("cache.json");
     let mut cache = Cache::load_or_new(&cache_path)?;
 
@@ -85,7 +92,7 @@ pub fn main() -> Result<()> {
 
         eprintln!("running solution: {}", solution.inner());
         let env = TestEnvironment::new(&mut cache, tester.clone(), solution.clone())
-            .context("failed to initialize test environment")?;
+            .wrap_err("failed to initialize test environment")?;
         let seeds = env.seeds.clone();
         if solution != &*PRIMARY_SOLUTION
             && cache.results.contains_key(solution)
@@ -96,7 +103,7 @@ pub fn main() -> Result<()> {
 
         cache.results.insert(
             solution.clone(),
-            env.run_solution().context("failed to run solution")?,
+            env.run_solution().wrap_err("failed to run solution")?,
         );
     }
 
@@ -199,7 +206,7 @@ impl Tester {
         let testing_tools_dir = testing_dir.join("tools");
 
         let testing_binaries_dir =
-            Self::ensure_built(&testing_tools_dir).context("failed to locate testing tools")?;
+            Self::ensure_built(&testing_tools_dir).wrap_err("failed to locate testing tools")?;
         let bin_gen = testing_binaries_dir.join("gen");
         let bin_vis = testing_binaries_dir.join("vis");
         let bin_tester = Some(testing_binaries_dir.join("tester")).filter(|p| p.exists());
@@ -223,7 +230,8 @@ impl Tester {
             .args(["build", "--release"])
             .current_dir(testing_tools_dir)
             .output()
-            .context("failed to build testing tools")?;
+            .into_diagnostic()
+            .wrap_err("failed to build testing tools")?;
 
         Ok(testing_binaries_dir)
     }
@@ -247,9 +255,10 @@ impl TestEnvironment {
             .join(target_solution.inner());
 
         let seeds =
-            Self::ensure_seeds(cache, &tester, &in_dir).context("failed to ensure seeds")?;
+            Self::ensure_seeds(cache, &tester, &in_dir).wrap_err("failed to ensure seeds")?;
         let in_filenames: Vec<_> = fs::read_dir(&in_dir)
-            .context("failed to read input directories")?
+            .into_diagnostic()
+            .wrap_err("failed to read input directories")?
             .filter_map(Result::ok)
             .map(|entry| {
                 entry
@@ -274,7 +283,8 @@ impl TestEnvironment {
 
     fn ensure_seeds(cache: &mut Cache, tester: &Tester, in_dir: &Path) -> Result<Vec<Seed>> {
         let seeds_txt_contents = fs::read_to_string(tester.testing_dir.join("seeds.txt"))
-            .context("failed to read seeds.txt")?;
+            .into_diagnostic()
+            .wrap_err("failed to read seeds.txt")?;
         let seeds_txt_hash = sha256::digest(&seeds_txt_contents);
         let seeds: Vec<_> = seeds_txt_contents.lines().map(Seed::new).collect();
 
@@ -287,7 +297,9 @@ impl TestEnvironment {
         eprintln!("regenerating seeds");
 
         if in_dir.exists() {
-            fs::remove_dir_all(in_dir).context("failed to remove existing input directory")?;
+            fs::remove_dir_all(in_dir)
+                .into_diagnostic()
+                .wrap_err("failed to remove existing input directory")?;
         }
 
         // We need to run generator at the testing directory, so we need to get the relative path
@@ -295,12 +307,14 @@ impl TestEnvironment {
         let bin_gen_relative = tester
             .bin_gen
             .strip_prefix(&tester.testing_dir)
-            .context("failed to get relative path for generator")?;
+            .into_diagnostic()
+            .wrap_err("failed to get relative path for generator")?;
         Command::new(bin_gen_relative)
             .arg("seeds.txt")
             .current_dir(&tester.testing_dir)
             .output()
-            .with_context(|| {
+            .into_diagnostic()
+            .wrap_err_with(|| {
                 format!(
                     "failed to execute generator at {}",
                     tester.bin_gen.display()
@@ -313,23 +327,29 @@ impl TestEnvironment {
     fn ensure_out_dir(&self) -> Result<()> {
         if self.out_dir.exists() {
             fs::remove_dir_all(&self.out_dir)
-                .context("failed to remove existing output directory")?;
+                .into_diagnostic()
+                .wrap_err("failed to remove existing output directory")?;
         }
-        fs::create_dir_all(&self.out_dir).context("failed to create output directory")?;
+        fs::create_dir_all(&self.out_dir)
+            .into_diagnostic()
+            .wrap_err("failed to create output directory")?;
 
         Ok(())
     }
 
     fn run_solution(&self) -> Result<HashMap<Seed, TestCaseResult>> {
         self.ensure_out_dir()
-            .context("failed to ensure output directory")?;
+            .wrap_err("failed to ensure output directory")?;
 
         eprintln!("building binary");
         let out = Command::new("cargo")
             .args(["build", "--release"])
             .spawn()
-            .context("failed to execute solution binary")?
-            .wait()?;
+            .into_diagnostic()
+            .wrap_err("failed to execute solution binary")?
+            .wait()
+            .into_diagnostic()
+            .wrap_err("failed to wait solution binary")?;
 
         if !out.success() {
             bail!("failed to build solution binary");
@@ -345,7 +365,7 @@ impl TestEnvironment {
                     })
             })
             .collect::<Result<_>>()
-            .context("some test cases critically failed")?;
+            .wrap_err("some test cases critically failed")?;
 
         Ok(results)
     }
@@ -365,15 +385,17 @@ impl TestEnvironment {
         let number: usize = in_filename
             .trim_end_matches(".txt")
             .parse()
-            .context("failed to parse input file name index")?;
+            .into_diagnostic()
+            .wrap_err("failed to parse input file name index")?;
         let seed = &self.seeds[number];
 
         let in_file_path = self.in_dir.join(in_filename);
         let out_file_path = self.out_dir.join(in_filename);
         let err_file_path = self.out_dir.join(format!("{}.stderr", in_filename));
 
-        let in_file_content =
-            fs::read_to_string(&in_file_path).context("failed to read input file contents")?;
+        let in_file_content = fs::read_to_string(&in_file_path)
+            .into_diagnostic()
+            .wrap_err("failed to read input file contents")?;
         let init_input =
             InitInput::read_from(&mut Source::new(BufReader::new(in_file_content.as_bytes())));
 
@@ -388,7 +410,8 @@ impl TestEnvironment {
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .spawn()
-                .context("failed to spawn tester (interactive)")?
+                .into_diagnostic()
+                .wrap_err("failed to spawn tester (interactive)")?
         } else {
             // Non-interactive
             Command::new(Path::new("target").join("release").join("main"))
@@ -398,27 +421,35 @@ impl TestEnvironment {
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .spawn()
-                .context("failed to spawn solution binary (non-interactive)")?
+                .into_diagnostic()
+                .wrap_err("failed to spawn solution binary (non-interactive)")?
         };
 
         if let Some(mut stdin) = main_process.stdin.take() {
             stdin
                 .write_all(in_file_content.as_bytes())
-                .context("failed to write to stdin")?;
+                .into_diagnostic()
+                .wrap_err("failed to write to stdin")?;
         }
 
         let output = main_process
             .wait_with_output()
-            .context("failed to wait for main process to finish")?;
+            .into_diagnostic()
+            .wrap_err("failed to wait for main process to finish")?;
         let duration_millis = start_time.elapsed().as_millis() as i64;
 
-        fs::write(&out_file_path, &output.stdout).context("failed to write stdout to file")?;
-        fs::write(&err_file_path, &output.stderr).context("failed to write stderr to file")?;
+        fs::write(&out_file_path, &output.stdout)
+            .into_diagnostic()
+            .wrap_err("failed to write stdout to file")?;
+        fs::write(&err_file_path, &output.stderr)
+            .into_diagnostic()
+            .wrap_err("failed to write stderr to file")?;
 
         let output = Command::new(&self.tester.bin_vis)
             .args([&in_file_path, &out_file_path])
             .output()
-            .context("failed to run visualizer")?;
+            .into_diagnostic()
+            .wrap_err("failed to run visualizer")?;
 
         let vis_out_output = String::from_utf8_lossy(&output.stdout).into_owned()
             + &String::from_utf8_lossy(&output.stderr);
@@ -441,17 +472,21 @@ impl TestEnvironment {
         File::options()
             .append(true)
             .open(&err_file_path)
-            .context("failed to open stdout file")?
+            .into_diagnostic()
+            .wrap_err("failed to open stdout file")?
             .write_all(vis_out_output.as_bytes())
-            .context("failed to append visualizer stdout")?;
+            .into_diagnostic()
+            .wrap_err("failed to append visualizer stdout")?;
 
         // Append duration
         File::options()
             .append(true)
             .open(&err_file_path)
-            .context("failed to open stdout file")?
+            .into_diagnostic()
+            .wrap_err("failed to open stdout file")?
             .write_all(format!("\nDuration: {} ms\n", duration_millis).as_bytes())
-            .context("failed to append duration")?;
+            .into_diagnostic()
+            .wrap_err("failed to append duration")?;
 
         Ok(TestCaseResult {
             in_filename: in_filename.clone(),
