@@ -3,20 +3,21 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not},
 };
 
-use itertools::izip;
+use itertools::{izip, Itertools};
 
-use crate::{bits::Bits, geom::Vec2D};
+use crate::{bits::Bits, geom::Vec2D, matrix::Mat};
+use std::vec::Vec;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Grid<T> {
     pub n: usize,
-    pub rows: Vec<Vec<T>>,
+    pub mat: Mat<T>,
 }
 
 impl<T: Default + Clone> Grid<T> {
     pub fn new_default(n: usize) -> Self {
-        let rows = vec![vec![T::default(); n]; n];
-        Self { n, rows }
+        let mat = Mat::filled(n, n, T::default());
+        Self { n, mat }
     }
 }
 
@@ -24,8 +25,9 @@ impl<T> Grid<T> {
     pub fn from_vec(grid: Vec<Vec<T>>) -> Self {
         let n = grid.len();
         assert!(grid.iter().all(|row| row.len() == n), "Grid must be square");
+        let mat = Mat::new(n, n, grid.into_iter().flatten().collect_vec());
 
-        Self { n, rows: grid }
+        Self { n, mat }
     }
 
     pub fn compute_points(&self) -> Vec<Vec2D<i32>>
@@ -52,7 +54,7 @@ impl<T> Grid<T> {
         } else {
             let i = p.y as usize;
             let j = p.x as usize;
-            Some(&self.rows[i][j])
+            Some(&self.mat[i][j])
         }
     }
 
@@ -62,7 +64,7 @@ impl<T> Grid<T> {
         } else {
             let i = p.y as usize;
             let j = p.x as usize;
-            Some(&mut self.rows[i][j])
+            Some(&mut self.mat[i][j])
         }
     }
 
@@ -98,7 +100,7 @@ impl BitAndAssign for Grid<bool> {
         assert_eq!(self.n, other.n);
         for i in 0..self.n {
             for j in 0..self.n {
-                self.rows[i][j] &= other.rows[i][j];
+                self.mat[i][j] &= other.mat[i][j];
             }
         }
     }
@@ -118,7 +120,7 @@ impl BitOrAssign for Grid<bool> {
         assert_eq!(self.n, other.n);
         for i in 0..self.n {
             for j in 0..self.n {
-                self.rows[i][j] |= other.rows[i][j];
+                self.mat[i][j] |= other.mat[i][j];
             }
         }
     }
@@ -137,7 +139,7 @@ impl Not for Grid<bool> {
     type Output = Self;
 
     fn not(mut self) -> Self::Output {
-        for row in &mut self.rows {
+        for row in &mut self.mat {
             for cell in row {
                 *cell = !*cell;
             }
@@ -166,7 +168,7 @@ impl BitField {
 
         let mut rows = [Bits::new(); 64];
 
-        for (i, row) in grid.rows.iter().enumerate() {
+        for (i, row) in grid.mat.iter().enumerate() {
             assert_eq!(row.len(), n);
             let mut bits = Bits::new();
 
