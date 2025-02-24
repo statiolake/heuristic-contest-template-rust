@@ -1,5 +1,6 @@
 use miette::{miette, Context, IntoDiagnostic, Result};
 use quote::ToTokens;
+use regex::{Captures, Regex};
 use std::{
     collections::{HashMap, VecDeque},
     fs::{self, read_to_string},
@@ -18,6 +19,9 @@ use syn::{
 };
 use toml::{Table, Value};
 
+// 100 KB 以上のソースコードは minify する
+const MINIFY_THRESHOLD: usize = 100 * 1000;
+
 pub fn main(args: &[String]) -> Result<()> {
     let skip_check = !args.is_empty() && args[0] == "--skip-check";
 
@@ -25,7 +29,11 @@ pub fn main(args: &[String]) -> Result<()> {
     let parsed = expand(&file_path)?;
 
     let stream = parsed.to_token_stream();
-    let formatted = format(&stream.to_string())?;
+    let mut formatted = format(&stream.to_string())?;
+    if formatted.len() > MINIFY_THRESHOLD {
+        formatted = minify(&formatted)?
+    }
+
     if !skip_check {
         check_compile(&formatted)?;
     }
@@ -383,6 +391,70 @@ pub fn format(source: &str) -> Result<String> {
         .wrap_err("rustfmt failed")?;
 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+pub fn minify(source: &str) -> Result<String> {
+    // パースして構文的な正しさを確認し、文字列リテラルを特定
+    let ast: File = parse_str(source)
+        .into_diagnostic()
+        .wrap_err("failed to parse source for minification")?;
+
+    // 文字列リテラルをプレースホルダーに置き換えて保持
+    let mut literals = HashMap::new();
+    let mut modified = source.to_string();
+    let re_string = Regex::new(r#""(?:[^"\\]|\\.)*""#).unwrap();
+
+    modified = re_string
+        .replace_all(&modified, |caps: &Captures| {
+            loop {
+                // プレースホルダーは1つの乱数値を使用
+                let placeholder = format!("@@__LITERAL_{:016x}@@", rand::random::<u64>());
+                // 衝突しなければこのプレースホルダーを使用
+                if literals
+                    .insert(placeholder.clone(), caps[0].to_string())
+                    .is_none()
+                {
+                    return placeholder;
+                }
+            }
+        })
+        .to_string();
+
+    // 1. コメントを除去 (// と /**/ 形式両方)
+    let re_line_comments = Regex::new(r"//[^\n]*").unwrap();
+    let re_block_comments = Regex::new(r"/\*([^*]|\*[^/])*\*/").unwrap();
+    let mut minified = re_line_comments.replace_all(&modified, "").to_string();
+    minified = re_block_comments.replace_all(&minified, "").to_string();
+
+    // 2. 連続する空白を1つに
+    let re_spaces = Regex::new(r"\s+").unwrap();
+    minified = re_spaces.replace_all(&minified, " ").to_string();
+
+    // 3. 特定のパターンの空白を除去（両端または片端の空白に対応）
+    // 変化がなくなるまで繰り返し適用
+    let re_operators = Regex::new(
+        r"\s*([:;,=(){}\[\]<>@\$\.\|\+\-\*/&#!%^~]|\->|::|=>|\.\.|\+=|-=|\*=|/=|&=|\|=|%=|\^=)\s*",
+    )
+    .unwrap();
+    loop {
+        let new_minified = re_operators
+            .replace_all(&minified, |caps: &Captures| caps[1].to_string())
+            .to_string();
+        if new_minified == minified {
+            break;
+        }
+        minified = new_minified;
+    }
+
+    // 4. 行頭と行末の空白を除去
+    minified = minified.trim().to_string();
+
+    // 5. プレースホルダーを元の文字列に戻す
+    for (placeholder, literal) in literals {
+        minified = minified.replace(&placeholder, &literal);
+    }
+
+    Ok(minified)
 }
 
 pub fn check_compile(source: &str) -> Result<()> {

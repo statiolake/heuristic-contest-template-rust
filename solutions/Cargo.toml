@@ -9,6 +9,8 @@ edition = "2021"
 [dependencies]
 io.workspace = true
 referee.workspace = true
+library.workspace = true
+
 itertools.workspace = true
 rand.workspace = true
 # regex.workspace = true

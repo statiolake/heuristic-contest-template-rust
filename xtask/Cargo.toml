@@ -24,7 +24,8 @@ regex = "1.11.1"
 tempfile = "3.16.0"
 toml = "0.8.20"
 miette = { version = "7.5.0", features = ["fancy"] }
+rand = "0.8.5"
 
 [dependencies.syn]
 version = "1.0.107"
-features = ["full", "parsing", "extra-traits", "visit-mut"]
+features = ["full", "parsing", "extra-traits", "visit", "visit-mut"]

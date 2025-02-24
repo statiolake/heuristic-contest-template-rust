@@ -1,4 +1,5 @@
 extern crate io;
+extern crate library;
 extern crate referee;
 
 use std::ops::ControlFlow;
