@@ -51,6 +51,12 @@ impl<T: Num> Vec2D<T> {
     }
 }
 
+impl<T: Float> Vec2D<T> {
+    pub fn eucrid_distance(&self, other: &Self) -> T {
+        self.square_distance(other).sqrt()
+    }
+}
+
 // 浮動小数点数型でのみ利用可能な実装
 impl<T: Float> Vec2D<T> {
     pub fn length_squared(&self) -> T {
