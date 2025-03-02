@@ -59,12 +59,12 @@ impl<T: Float> Vec2D<T> {
 
 // 浮動小数点数型でのみ利用可能な実装
 impl<T: Float> Vec2D<T> {
-    pub fn length_squared(&self) -> T {
+    pub fn square_length(&self) -> T {
         self.x * self.x + self.y * self.y
     }
 
     pub fn length(&self) -> T {
-        self.length_squared().sqrt()
+        self.square_length().sqrt()
     }
 
     pub fn normalize(&self) -> Self {
