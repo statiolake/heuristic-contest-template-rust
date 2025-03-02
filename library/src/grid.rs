@@ -151,22 +151,22 @@ impl Not for Grid<bool> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct BitField {
     pub n: usize,
-    pub rows: [Bits; 64],
+    pub rows: [Bits; Bits::NUM_BITS],
 }
 
 impl BitField {
     pub fn new_zero(n: usize) -> Self {
-        assert!(n < 64);
-        let rows = [Bits::new(); 64];
+        assert!(n < Bits::NUM_BITS);
+        let rows = [Bits::new(); Bits::NUM_BITS];
 
         Self { n, rows }
     }
 
     pub fn from_grid(grid: Grid<bool>) -> Self {
         let n = grid.n;
-        assert!(n < 64);
+        assert!(n < Bits::NUM_BITS);
 
-        let mut rows = [Bits::new(); 64];
+        let mut rows = [Bits::new(); Bits::NUM_BITS];
 
         for (i, row) in grid.mat.iter().enumerate() {
             assert_eq!(row.len(), n);

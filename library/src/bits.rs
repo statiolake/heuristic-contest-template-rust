@@ -8,6 +8,10 @@ pub struct Bits {
     pub bits: u64,
 }
 
+impl Bits {
+    pub const NUM_BITS: usize = 64;
+}
+
 impl fmt::Debug for Bits {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:064b}", self.bits)
