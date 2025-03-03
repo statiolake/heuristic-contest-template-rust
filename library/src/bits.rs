@@ -24,11 +24,7 @@ impl Bits {
     }
 
     pub fn set(&mut self, i: usize, b: bool) {
-        if b {
-            self.bits |= 1 << i;
-        } else {
-            self.bits &= !(1 << i);
-        }
+        self.bits = (self.bits & !(1 << i)) | ((b as BitsRepr) << i);
     }
 
     pub fn get(&self, i: usize) -> bool {
