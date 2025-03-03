@@ -31,7 +31,7 @@ pub fn main(args: &[String]) -> Result<()> {
     let stream = parsed.to_token_stream();
     let mut formatted = format(&stream.to_string())?;
     if formatted.len() > MINIFY_THRESHOLD {
-        formatted = minify(&formatted)?
+        formatted = minify(&formatted)?;
     }
 
     if !skip_check {
