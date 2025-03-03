@@ -3,13 +3,11 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not},
 };
 
+type BitsRepr = u64;
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Bits {
-    pub bits: u64,
-}
-
-impl Bits {
-    pub const NUM_BITS: usize = 64;
+    pub bits: BitsRepr,
 }
 
 impl fmt::Debug for Bits {
@@ -19,6 +17,8 @@ impl fmt::Debug for Bits {
 }
 
 impl Bits {
+    pub const NUM_BITS: usize = BitsRepr::BITS as usize;
+
     pub fn new() -> Self {
         Self { bits: 0 }
     }
