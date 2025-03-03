@@ -47,6 +47,7 @@ impl BitAndAssign<Bits> for Bits {
         self.bits &= other.bits;
     }
 }
+
 impl BitAnd<Bits> for Bits {
     type Output = Self;
     fn bitand(mut self, other: Bits) -> Self::Output {
