@@ -5,7 +5,7 @@ use std::{
 
 use itertools::izip;
 
-use crate::{
+use crate::strct::{
     grid::Grid,
     ij::{IJSize, IJ},
 };
@@ -107,7 +107,7 @@ impl BitField {
 
         let mut rows = vec![Bits::new(); c.h];
 
-        for (i, row) in grid.mat.iter().enumerate() {
+        for (i, row) in grid.iter().enumerate() {
             assert_eq!(row.len(), c.w);
             let mut bits = Bits::new();
 

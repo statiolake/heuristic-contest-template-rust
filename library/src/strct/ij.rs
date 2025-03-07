@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Sub},
 };
 
-use crate::{make_per, matrix::Mat};
+use crate::{make_per, strct::grid::Grid};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct IJ(usize);
@@ -41,7 +41,7 @@ impl IJ {
         ])
     }
 
-    pub fn generate_neighbors(c: IJSize) -> Mat<PerIJDir<Option<Self>>> {
+    pub fn generate_neighbors(c: IJSize) -> Grid<PerIJDir<Option<Self>>> {
         let mut res = vec![PerIJDir::default(); c.size()];
 
         for i in 0..c.h {
@@ -65,7 +65,7 @@ impl IJ {
             }
         }
 
-        Mat::new(c, res)
+        Grid::new(c, res)
     }
 }
 

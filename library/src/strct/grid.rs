@@ -1,16 +1,19 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    fmt,
+    ops::{Index, IndexMut},
+};
 
 use itertools::Itertools;
 
-use crate::ij::{IJSize, IJ};
+use crate::strct::ij::{IJSize, IJ};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Mat<T> {
+pub struct Grid<T> {
     data: Vec<T>,
     c: IJSize,
 }
 
-impl<T> Mat<T> {
+impl<T> Grid<T> {
     pub fn new(c: IJSize, data: Vec<T>) -> Self {
         assert_eq!(c.size(), data.len());
         Self { data, c }
@@ -31,7 +34,7 @@ impl<T> Mat<T> {
         // grid が空の場合は幅も高さも 0 としておく
         let w = grid.first().map(|row| row.len()).unwrap_or(0);
         let c = IJSize::new(h, w);
-        Mat::new(c, grid.into_iter().flatten().collect_vec())
+        Grid::new(c, grid.into_iter().flatten().collect_vec())
     }
 
     pub fn config(&self) -> IJSize {
@@ -57,9 +60,33 @@ impl<T> Mat<T> {
         let end = start + self.c.w;
         &mut self.data[start..end]
     }
+
+    pub fn iter(&self) -> std::slice::Chunks<'_, T> {
+        self.into_iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::ChunksMut<'_, T> {
+        self.into_iter()
+    }
+
+    pub fn dump(&self)
+    where
+        T: fmt::Display,
+    {
+        eprintln!("+{}+", "-".repeat(self.config().w));
+        for i in 0..self.config().h {
+            eprint!("|");
+            for j in 0..self.config().w {
+                let pos = unsafe { self.config().make_unchecked(i, j) };
+                eprint!("{}", self.get(pos));
+            }
+            eprintln!("|");
+        }
+        eprintln!("+{}+", "-".repeat(self.config().w));
+    }
 }
 
-impl<T> Index<IJ> for Mat<T> {
+impl<T> Index<IJ> for Grid<T> {
     type Output = T;
 
     fn index(&self, idx: IJ) -> &Self::Output {
@@ -67,13 +94,13 @@ impl<T> Index<IJ> for Mat<T> {
     }
 }
 
-impl<T> IndexMut<IJ> for Mat<T> {
+impl<T> IndexMut<IJ> for Grid<T> {
     fn index_mut(&mut self, idx: IJ) -> &mut Self::Output {
         self.get_mut(idx)
     }
 }
 
-impl<T> Index<usize> for Mat<T> {
+impl<T> Index<usize> for Grid<T> {
     type Output = [T];
 
     fn index(&self, idx: usize) -> &Self::Output {
@@ -81,13 +108,13 @@ impl<T> Index<usize> for Mat<T> {
     }
 }
 
-impl<T> IndexMut<usize> for Mat<T> {
+impl<T> IndexMut<usize> for Grid<T> {
     fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
         self.row_mut(idx)
     }
 }
 
-impl<'a, T> IntoIterator for &'a Mat<T> {
+impl<'a, T> IntoIterator for &'a Grid<T> {
     type Item = &'a [T];
     type IntoIter = std::slice::Chunks<'a, T>;
 
@@ -96,7 +123,7 @@ impl<'a, T> IntoIterator for &'a Mat<T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a mut Mat<T> {
+impl<'a, T> IntoIterator for &'a mut Grid<T> {
     type Item = &'a mut [T];
     type IntoIter = std::slice::ChunksMut<'a, T>;
 
@@ -105,20 +132,10 @@ impl<'a, T> IntoIterator for &'a mut Mat<T> {
     }
 }
 
-impl<T> Mat<T> {
-    pub fn iter(&self) -> std::slice::Chunks<'_, T> {
-        self.into_iter()
-    }
-
-    pub fn iter_mut(&mut self) -> std::slice::ChunksMut<'_, T> {
-        self.into_iter()
-    }
-}
-
 #[macro_export]
 macro_rules! mat {
     () => {
-        Mat::new(0, 0, vec![])
+        $crate::strct::grid::Grid::new($crate::strct::ij::IJSize::new(0, 0), vec![])
     };
     ($($($e:expr),*;)*) => {
         {
@@ -129,15 +146,13 @@ macro_rules! mat {
                 panic!("invalid matrix size: {} x {} but data len is {}", h, w, data.len());
             }
 
-            Mat::new(IJSize::new(h, w), data)
+            $crate::strct::grid::Grid::new($crate::strct::ij::IJSize::new(h, w), data)
         }
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_mat() {
         let m = mat![
