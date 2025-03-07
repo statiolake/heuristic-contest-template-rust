@@ -10,14 +10,14 @@ use crate::strct::{
     ij::{IJSize, IJ},
 };
 
-type BitsRepr = u64;
+type BitRowRepr = u64;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Bits {
-    pub bits: BitsRepr,
+pub struct BitRow {
+    pub bits: BitRowRepr,
 }
 
-impl fmt::Debug for Bits {
+impl fmt::Debug for BitRow {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // BitsRepr の型が変わったときにフォーマット指定子を変え忘れないようにするため、あえてここで
         // u64 に代入して型が変わっていないことを静的にチェックしている
@@ -26,15 +26,15 @@ impl fmt::Debug for Bits {
     }
 }
 
-impl Bits {
-    pub const NUM_BITS: usize = BitsRepr::BITS as usize;
+impl BitRow {
+    pub const NUM_BITS: usize = BitRowRepr::BITS as usize;
 
     pub fn new() -> Self {
         Self { bits: 0 }
     }
 
     pub fn set(&mut self, i: usize, b: bool) {
-        self.bits = (self.bits & !(1 << i)) | ((b as BitsRepr) << i);
+        self.bits = (self.bits & !(1 << i)) | ((b as BitRowRepr) << i);
     }
 
     pub fn get(&self, i: usize) -> bool {
@@ -46,41 +46,41 @@ impl Bits {
     }
 }
 
-impl Default for Bits {
+impl Default for BitRow {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BitAndAssign<Bits> for Bits {
-    fn bitand_assign(&mut self, other: Bits) {
+impl BitAndAssign<BitRow> for BitRow {
+    fn bitand_assign(&mut self, other: BitRow) {
         self.bits &= other.bits;
     }
 }
 
-impl BitAnd<Bits> for Bits {
+impl BitAnd<BitRow> for BitRow {
     type Output = Self;
-    fn bitand(mut self, other: Bits) -> Self::Output {
+    fn bitand(mut self, other: BitRow) -> Self::Output {
         self &= other;
         self
     }
 }
 
-impl BitOrAssign<Bits> for Bits {
-    fn bitor_assign(&mut self, other: Bits) {
+impl BitOrAssign<BitRow> for BitRow {
+    fn bitor_assign(&mut self, other: BitRow) {
         self.bits |= other.bits;
     }
 }
 
-impl BitOr<Bits> for Bits {
+impl BitOr<BitRow> for BitRow {
     type Output = Self;
-    fn bitor(mut self, other: Bits) -> Self::Output {
+    fn bitor(mut self, other: BitRow) -> Self::Output {
         self |= other;
         self
     }
 }
 
-impl Not for Bits {
+impl Not for BitRow {
     type Output = Self;
 
     fn not(self) -> Self::Output {
@@ -89,15 +89,15 @@ impl Not for Bits {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct BitField {
+pub struct BitGrid {
     pub c: IJSize,
-    pub rows: Vec<Bits>,
+    pub rows: Vec<BitRow>,
 }
 
-impl BitField {
+impl BitGrid {
     pub fn new_zero(c: IJSize) -> Self {
-        assert!(c.w < Bits::NUM_BITS);
-        let rows = vec![Bits::new(); c.h];
+        assert!(c.w < BitRow::NUM_BITS);
+        let rows = vec![BitRow::new(); c.h];
 
         Self { c, rows }
     }
@@ -105,11 +105,11 @@ impl BitField {
     pub fn from_grid(grid: Grid<bool>) -> Self {
         let c = grid.config();
 
-        let mut rows = vec![Bits::new(); c.h];
+        let mut rows = vec![BitRow::new(); c.h];
 
         for (i, row) in grid.iter().enumerate() {
             assert_eq!(row.len(), c.w);
-            let mut bits = Bits::new();
+            let mut bits = BitRow::new();
 
             for (j, &b) in row.iter().enumerate() {
                 bits.set(j, b);
@@ -168,8 +168,8 @@ impl BitField {
     }
 }
 
-impl BitAndAssign<BitField> for BitField {
-    fn bitand_assign(&mut self, other: BitField) {
+impl BitAndAssign<BitGrid> for BitGrid {
+    fn bitand_assign(&mut self, other: BitGrid) {
         assert_eq!(self.c, other.c);
         for (a, b) in izip!(&mut self.rows, &other.rows) {
             *a &= *b;
@@ -177,16 +177,16 @@ impl BitAndAssign<BitField> for BitField {
     }
 }
 
-impl BitAnd<BitField> for BitField {
+impl BitAnd<BitGrid> for BitGrid {
     type Output = Self;
-    fn bitand(mut self, other: BitField) -> Self::Output {
+    fn bitand(mut self, other: BitGrid) -> Self::Output {
         self &= other;
         self
     }
 }
 
-impl BitOrAssign<BitField> for BitField {
-    fn bitor_assign(&mut self, other: BitField) {
+impl BitOrAssign<BitGrid> for BitGrid {
+    fn bitor_assign(&mut self, other: BitGrid) {
         assert_eq!(self.c, other.c);
         for (a, b) in izip!(&mut self.rows, &other.rows) {
             *a |= *b;
@@ -194,15 +194,15 @@ impl BitOrAssign<BitField> for BitField {
     }
 }
 
-impl BitOr<BitField> for BitField {
+impl BitOr<BitGrid> for BitGrid {
     type Output = Self;
-    fn bitor(mut self, other: BitField) -> Self::Output {
+    fn bitor(mut self, other: BitGrid) -> Self::Output {
         self |= other;
         self
     }
 }
 
-impl Not for BitField {
+impl Not for BitGrid {
     type Output = Self;
 
     fn not(self) -> Self::Output {
@@ -220,13 +220,13 @@ pub mod tests {
 
     #[test]
     fn test_new() {
-        let bits = Bits::new();
+        let bits = BitRow::new();
         assert_eq!(bits.bits, 0);
     }
 
     #[test]
     fn test_set_get() {
-        let mut bits = Bits::new();
+        let mut bits = BitRow::new();
         assert!(!bits.get(0));
         assert!(!bits.get(1));
         bits.set(1, true);
@@ -239,7 +239,7 @@ pub mod tests {
 
     #[test]
     fn test_multiple_bits() {
-        let mut bits = Bits::new();
+        let mut bits = BitRow::new();
         bits.set(0, true);
         bits.set(2, true);
         bits.set(4, true);
@@ -252,8 +252,8 @@ pub mod tests {
 
     #[test]
     fn test_bit_ops() {
-        let mut a = Bits::new();
-        let mut b = Bits::new();
+        let mut a = BitRow::new();
+        let mut b = BitRow::new();
         a.set(1, true);
         a.set(3, true);
         b.set(3, true);
@@ -281,7 +281,7 @@ pub mod tests {
 
     #[test]
     fn test_count_ones() {
-        let mut bits = Bits::new();
+        let mut bits = BitRow::new();
         assert_eq!(bits.count_ones(), 0);
         bits.set(1, true);
         bits.set(3, true);
@@ -291,7 +291,7 @@ pub mod tests {
 
     #[test]
     fn test_default() {
-        let bits: Bits = Default::default();
+        let bits: BitRow = Default::default();
         assert_eq!(bits.bits, 0);
     }
 }
