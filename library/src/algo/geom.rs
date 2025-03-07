@@ -1,69 +1,48 @@
-use std::{
-    fmt,
-    hash::Hash,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
-};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use crate::num::{Float, Num};
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Vec2D<T> {
-    pub x: T,
-    pub y: T,
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub struct Vec2D {
+    pub x: f64,
+    pub y: f64,
 }
 
-impl<T> Vec2D<T> {
-    pub fn new(x: T, y: T) -> Self {
+impl Vec2D {
+    pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
     }
 }
 
-impl<T: Copy> Vec2D<T> {
-    pub fn x(&self) -> T {
+impl Vec2D {
+    pub fn x(&self) -> f64 {
         self.x
     }
 
-    pub fn y(&self) -> T {
+    pub fn y(&self) -> f64 {
         self.y
     }
 
-    pub fn cast<U>(&self) -> Vec2D<U>
-    where
-        U: TryFrom<T>,
-        U::Error: fmt::Debug,
-    {
-        Vec2D::new(self.x.try_into().unwrap(), self.y.try_into().unwrap())
-    }
-}
-
-impl<T: Num> Vec2D<T> {
     // マンハッタン距離
-    pub fn manhattan_distance(&self, other: &Self) -> T {
+    pub fn manhattan_distance(&self, other: &Self) -> f64 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         dx + dy
     }
 
-    pub fn square_distance(&self, other: &Self) -> T {
+    pub fn square_distance(&self, other: &Self) -> f64 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         dx * dx + dy * dy
     }
-}
 
-impl<T: Float> Vec2D<T> {
-    pub fn eucrid_distance(&self, other: &Self) -> T {
+    pub fn eucrid_distance(&self, other: &Self) -> f64 {
         self.square_distance(other).sqrt()
     }
-}
 
-// 浮動小数点数型でのみ利用可能な実装
-impl<T: Float> Vec2D<T> {
-    pub fn square_length(&self) -> T {
+    pub fn square_length(&self) -> f64 {
         self.x * self.x + self.y * self.y
     }
 
-    pub fn length(&self) -> T {
+    pub fn length(&self) -> f64 {
         self.square_length().sqrt()
     }
 
@@ -75,19 +54,19 @@ impl<T: Float> Vec2D<T> {
         }
     }
 
-    pub fn dot(&self, other: &Self) -> T {
+    pub fn dot(&self, other: &Self) -> f64 {
         self.x * other.x + self.y * other.y
     }
 
-    pub fn cross(&self, other: &Self) -> T {
+    pub fn cross(&self, other: &Self) -> f64 {
         self.x * other.y - self.y * other.x
     }
 
-    pub fn angle_to(&self, other: &Self) -> T {
+    pub fn angle_to(&self, other: &Self) -> f64 {
         (self.dot(other) / (self.length() * other.length())).acos()
     }
 
-    pub fn rotate(&self, angle: T) -> Self {
+    pub fn rotate(&self, angle: f64) -> Self {
         let cos = angle.cos();
         let sin = angle.sin();
         Self {
@@ -96,17 +75,17 @@ impl<T: Float> Vec2D<T> {
         }
     }
 
-    pub fn distance_to(&self, other: &Self) -> T {
+    pub fn distance_to(&self, other: &Self) -> f64 {
         (*other - *self).length()
     }
 
-    pub fn approx_eq(&self, other: &Self, eps: T) -> bool {
+    pub fn approx_eq(&self, other: &Self, eps: f64) -> bool {
         (self.x - other.x).abs() < eps && (self.y - other.y).abs() < eps
     }
 }
 
 // 演算子のオーバーロード実装
-impl<T: Num> Add for Vec2D<T> {
+impl Add for Vec2D {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         Self {
@@ -116,7 +95,7 @@ impl<T: Num> Add for Vec2D<T> {
     }
 }
 
-impl<T: Num> Sub for Vec2D<T> {
+impl Sub for Vec2D {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
         Self {
@@ -126,9 +105,9 @@ impl<T: Num> Sub for Vec2D<T> {
     }
 }
 
-impl<T: Num> Mul<T> for Vec2D<T> {
+impl Mul<f64> for Vec2D {
     type Output = Self;
-    fn mul(self, scalar: T) -> Self {
+    fn mul(self, scalar: f64) -> Self {
         Self {
             x: self.x * scalar,
             y: self.y * scalar,
@@ -136,9 +115,9 @@ impl<T: Num> Mul<T> for Vec2D<T> {
     }
 }
 
-impl<T: Num> Div<T> for Vec2D<T> {
+impl Div<f64> for Vec2D {
     type Output = Self;
-    fn div(self, scalar: T) -> Self {
+    fn div(self, scalar: f64) -> Self {
         Self {
             x: self.x / scalar,
             y: self.y / scalar,
@@ -146,7 +125,7 @@ impl<T: Num> Div<T> for Vec2D<T> {
     }
 }
 
-impl<T: Num> Neg for Vec2D<T> {
+impl Neg for Vec2D {
     type Output = Self;
     fn neg(self) -> Self {
         Self {
@@ -156,26 +135,26 @@ impl<T: Num> Neg for Vec2D<T> {
     }
 }
 
-impl<T: Num> AddAssign for Vec2D<T> {
+impl AddAssign for Vec2D {
     fn add_assign(&mut self, other: Self) {
         *self = *self + other;
     }
 }
 
-impl<T: Num> SubAssign for Vec2D<T> {
+impl SubAssign for Vec2D {
     fn sub_assign(&mut self, other: Self) {
         *self = *self - other;
     }
 }
 
-impl<T: Num> MulAssign<T> for Vec2D<T> {
-    fn mul_assign(&mut self, scalar: T) {
+impl MulAssign<f64> for Vec2D {
+    fn mul_assign(&mut self, scalar: f64) {
         *self = *self * scalar;
     }
 }
 
-impl<T: Num> DivAssign<T> for Vec2D<T> {
-    fn div_assign(&mut self, scalar: T) {
+impl DivAssign<f64> for Vec2D {
+    fn div_assign(&mut self, scalar: f64) {
         *self = *self / scalar;
     }
 }
