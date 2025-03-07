@@ -395,7 +395,7 @@ pub fn format(source: &str) -> Result<String> {
 
 pub fn minify(source: &str) -> Result<String> {
     // パースして構文的な正しさを確認し、文字列リテラルを特定
-    let ast: File = parse_str(source)
+    let _ast: File = parse_str(source)
         .into_diagnostic()
         .wrap_err("failed to parse source for minification")?;
 
